@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm init:*)",
+      "Bash(cat:*)",
+      "Bash(chmod:*)",
+      "Bash(pnpm biome migrate:*)",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm format:fix:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm lint:fix:*)",
+      "Bash(pnpm prepare:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm biome check:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm lefthook run:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm prettier:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,20 @@
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      glob: "src/**/*.ts"
+      run: pnpm tsc --noEmit
+    lint:
+      glob: "src/**/*.ts"
+      run: pnpm biome check --write {staged_files}
+    format:
+      glob: "*.{ts,json,md,yml}"
+      run: pnpm prettier --write {staged_files}
+
+pre-push:
+  commands:
+    test:
+      run: pnpm test:run
+      skip:
+        - merge
+        - rebase

@@ -1,0 +1,45 @@
+{
+  "name": "woobiebot",
+  "version": "1.0.0",
+  "description": "Discord bot for file serving with search and rate limiting",
+  "type": "module",
+  "main": "./dist/index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest --run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "check": "tsc --noEmit && biome check . && prettier --check . && pnpm test:run",
+    "prepare": "lefthook install"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "dotenv": "^17.2.3",
+    "fuse.js": "^7.1.0",
+    "pino": "^10.0.0",
+    "pino-pretty": "^13.1.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.5",
+    "@evilmartians/lefthook": "^1.13.6",
+    "@types/node": "^24.7.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
