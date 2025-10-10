@@ -27,7 +27,11 @@
       "Bash(pkill:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(killall:*)"
+      "Bash(killall:*)",
+      "Bash(for f in src/*.spec.ts)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(head:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

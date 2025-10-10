@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import type { FSWatcher } from "chokidar";
 import { watch } from "chokidar";
 import glob from "fast-glob";
@@ -48,7 +48,7 @@ export class FileIndexer {
       "Starting file indexer",
     );
     await this._scanDirectory();
-    // this._setupWatcher(); // TODO: Fix chokidar recursion issue
+    this._setupWatcher();
     this._initializeSearch();
     logger.info({ fileCount: this.index.size }, "File indexer started");
   }
@@ -155,10 +155,10 @@ export class FileIndexer {
    * Set up the file watcher.
    */
   private _setupWatcher(): void {
-    const patterns = this.extensions.map((ext) => `**/*${ext}`);
+    const absoluteDir = resolve(this.directory);
+    const patterns = this.extensions.map((ext) => join(absoluteDir, `**/*${ext}`));
 
     this.watcher = watch(patterns, {
-      cwd: this.directory,
       persistent: true,
       ignoreInitial: true,
       followSymlinks: false,
@@ -168,15 +168,18 @@ export class FileIndexer {
       },
     });
 
-    this.watcher.on("add", (relativePath) => {
+    this.watcher.on("add", (absolutePath) => {
+      const relativePath = relative(absoluteDir, absolutePath);
       this._indexFile(relativePath);
     });
 
-    this.watcher.on("change", (relativePath) => {
+    this.watcher.on("change", (absolutePath) => {
+      const relativePath = relative(absoluteDir, absolutePath);
       this._indexFile(relativePath);
     });
 
-    this.watcher.on("unlink", (relativePath) => {
+    this.watcher.on("unlink", (absolutePath) => {
+      const relativePath = relative(absoluteDir, absolutePath);
       this._removeFile(relativePath);
     });
 
