@@ -59,7 +59,7 @@ export class CaptchaManager {
 
   /**
    * Generate a captcha challenge for a specific user and file.
-   * Returns challenge data and HMAC signature binding the challenge to (userId, fileId).
+   * Return challenge data and HMAC signature binding the challenge to (userId, fileId).
    */
   async generateChallenge(userId: string, fileId: string): Promise<ChallengeData> {
     const result = await this.cap.createChallenge({
@@ -89,7 +89,7 @@ export class CaptchaManager {
 
   /**
    * Verify a captcha challenge with string-based inputs (for web API).
-   * Parses challenge JSON and solution CSV, then validates.
+   * Parse challenge JSON and solution CSV, then validate.
    */
   async verifyChallenge(
     challengeStr: string,
@@ -112,7 +112,7 @@ export class CaptchaManager {
 
   /**
    * Verify a captcha solution for a specific user and file.
-   * Checks HMAC signature and validates the PoW solution.
+   * Check HMAC signature and validate the PoW solution.
    */
   async verifySolution(
     userId: string,

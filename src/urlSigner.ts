@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * Utility for creating and verifying HMAC-signed URLs for file downloads.
- * Signs (userId, fileId, expiresAt) tuples to prevent tampering and ensure time-limited access.
+ * Sign (userId, fileId, expiresAt) tuples to prevent tampering and ensure time-limited access.
  */
 export class UrlSigner {
   private readonly secret: Buffer;
@@ -12,7 +12,7 @@ export class UrlSigner {
   }
 
   /**
-   * Generates a signed download URL with expiration.
+   * Generate a signed download URL with expiration.
    */
   signDownloadUrl(baseUrl: string, userId: string, fileId: string, expiresInMs: number): string {
     const expiresAt = Date.now() + expiresInMs;
@@ -28,8 +28,8 @@ export class UrlSigner {
   }
 
   /**
-   * Verifies a signed download URL and returns the decoded parameters.
-   * Returns null if signature is invalid or URL has expired.
+   * Verify a signed download URL and return the decoded parameters.
+   * Return null if signature is invalid or URL has expired.
    */
   verifyDownloadUrl(url: string): {
     userId: string;

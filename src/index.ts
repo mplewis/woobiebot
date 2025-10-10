@@ -8,7 +8,7 @@ import { WebServer } from "./webServer.js";
 
 /**
  * Main application entry point.
- * Initializes and starts all services.
+ * Initialize and start all services.
  */
 async function main() {
   logger.info("Starting Woobiebot...");

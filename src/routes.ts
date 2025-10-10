@@ -17,14 +17,14 @@ export interface RoutesDependencies {
 }
 
 /**
- * Registers all HTTP routes for the web server.
+ * Register all HTTP routes for the web server.
  */
 export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): void {
   const { urlSigner, captchaManager, rateLimiter, indexer, logger, baseUrl } = deps;
 
   /**
    * GET /download
-   * Displays captcha page for verified download URLs.
+   * Display captcha page for verified download URLs.
    */
   app.get("/download", async (request, reply) => {
     const url = `${baseUrl}${request.url}`;
@@ -60,7 +60,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
 
   /**
    * POST /verify
-   * Verifies captcha solution and streams the requested file.
+   * Verify captcha solution and stream the requested file.
    */
   app.post<{
     Body: {

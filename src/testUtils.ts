@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 /**
  * PRNG function from Cap.js for generating deterministic challenges.
- * Uses FNV-1a hash to seed a xorshift PRNG for reproducible sequences.
+ * Use FNV-1a hash to seed a xorshift PRNG for reproducible sequences.
  */
 export function prng(seed: string, length: number): string {
   function fnv1a(str: string): number {

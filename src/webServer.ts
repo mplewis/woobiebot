@@ -20,7 +20,7 @@ export interface WebServerDependencies {
 
 /**
  * Web server for handling file downloads with captcha verification.
- * Provides endpoints for captcha challenges and verified file downloads.
+ * Provide endpoints for captcha challenges and verified file downloads.
  */
 export class WebServer {
   private readonly app: FastifyInstance;
@@ -63,7 +63,7 @@ export class WebServer {
   }
 
   /**
-   * Starts the web server.
+   * Start the web server.
    */
   async start(): Promise<void> {
     try {
@@ -85,7 +85,7 @@ export class WebServer {
   }
 
   /**
-   * Stops the web server.
+   * Stop the web server.
    */
   async stop(): Promise<void> {
     try {
@@ -98,7 +98,7 @@ export class WebServer {
   }
 
   /**
-   * Generates a signed download URL for a user and file.
+   * Generate a signed download URL for a user and file.
    */
   generateDownloadUrl(userId: string, fileId: string): string {
     return this.urlSigner.signDownloadUrl(
@@ -110,7 +110,7 @@ export class WebServer {
   }
 
   /**
-   * Gets the Fastify instance for testing.
+   * Get the Fastify instance for testing.
    */
   getApp(): FastifyInstance {
     return this.app;

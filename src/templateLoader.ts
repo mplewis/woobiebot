@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 /**
- * Loads and caches template files.
+ * Load and cache template files.
  */
 class TemplateLoader {
   private readonly cache = new Map<string, string>();
 
   /**
-   * Loads a template file from the templates directory.
+   * Load a template file from the templates directory.
    */
   load(filename: string): string {
     if (this.cache.has(filename)) {
@@ -25,7 +25,7 @@ class TemplateLoader {
   }
 
   /**
-   * Renders the captcha page with the provided data.
+   * Render the captcha page with the provided data.
    */
   renderCaptchaPage(data: {
     challenge: { c: number; s: number; d: number };
