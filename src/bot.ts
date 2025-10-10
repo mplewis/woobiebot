@@ -84,7 +84,7 @@ export class Bot {
     } else if (content === "help") {
       await this.handleHelp(message);
     } else {
-      await message.reply("Unknown command. Use `help` to see available commands.");
+      await message.author.send("Unknown command. Use `help` to see available commands.");
     }
   }
 
@@ -93,7 +93,7 @@ export class Bot {
    */
   private async handleSearch(message: Message, query: string): Promise<void> {
     if (!query) {
-      await message.reply("Please provide a search term. Usage: `search <term>`");
+      await message.author.send("Please provide a search term. Usage: `search <term>`");
       return;
     }
 
@@ -102,7 +102,7 @@ export class Bot {
     const results = this.indexer.search(query);
 
     if (results.length === 0) {
-      await message.reply(`No files found matching "${query}".`);
+      await message.author.send(`No files found matching "${query}".`);
       return;
     }
 
@@ -115,7 +115,7 @@ export class Bot {
     const more =
       results.length > maxResults ? `\n\n...and ${results.length - maxResults} more` : "";
 
-    await message.reply(
+    await message.author.send(
       `Found ${results.length} file(s) matching "${query}":\n\n${resultList}${more}\n\nUse \`get <id>\` to download a file.`,
     );
   }
@@ -125,7 +125,7 @@ export class Bot {
    */
   private async handleGet(message: Message, userId: string, fileId: string): Promise<void> {
     if (!fileId) {
-      await message.reply("Please provide a file ID. Usage: `get <id>`");
+      await message.author.send("Please provide a file ID. Usage: `get <id>`");
       return;
     }
 
@@ -134,7 +134,7 @@ export class Bot {
     // Check if file exists
     const file = this.indexer.getById(fileId);
     if (!file) {
-      await message.reply(`File with ID \`${fileId}\` not found.`);
+      await message.author.send(`File with ID \`${fileId}\` not found.`);
       return;
     }
 
@@ -142,7 +142,7 @@ export class Bot {
     const rateLimitResult = this.rateLimiter.consume(userId);
     if (!rateLimitResult.allowed) {
       const resetTime = new Date(rateLimitResult.resetAt).toLocaleString();
-      await message.reply(
+      await message.author.send(
         `You have exceeded your download limit. Your quota will reset at ${resetTime}.`,
       );
       return;
@@ -151,7 +151,7 @@ export class Bot {
     // Generate signed download URL
     const downloadUrl = this.webServer.generateDownloadUrl(userId, fileId);
 
-    await message.reply(
+    await message.author.send(
       `Download link for **${file.name}**:\n${downloadUrl}\n\n` +
         `This link will expire in ${this.config.URL_EXPIRES_MS / 1000 / 60} minutes.\n` +
         `You have ${rateLimitResult.remainingTokens} download(s) remaining.`,
@@ -162,7 +162,7 @@ export class Bot {
    * Handle the help command to display available commands.
    */
   private async handleHelp(message: Message): Promise<void> {
-    await message.reply(
+    await message.author.send(
       "**Woobiebot Commands**\n\n" +
         "`search <term>` - Search for files by name or content\n" +
         "`get <id>` - Get a download link for a file\n" +
