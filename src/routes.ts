@@ -94,7 +94,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     }
 
     // Check rate limit
-    const rateLimitResult = rateLimiter.consume(userId);
+    const rateLimitResult = await rateLimiter.consume(userId);
     if (!rateLimitResult.allowed) {
       logger.warn({ userId, fileId }, "Rate limit exceeded");
       return reply.status(429).send({ error: "Rate limit exceeded. Please try again later." });

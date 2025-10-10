@@ -27,15 +27,14 @@ beforeEach(() => {
     CAPTCHA_CHALLENGE_COUNT: 3,
     CAPTCHA_DIFFICULTY: 2,
     DOWNLOADS_PER_HR: 10,
-    DATABASE_PATH: ":memory:",
-    RATE_LIMIT_STATE_PATH: "./rate-limit-state.json",
+    RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-bot",
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
   };
 
   indexer = new FileIndexer(config.FILES_DIRECTORY, config.FILE_EXTENSIONS);
 
-  rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600);
+  rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600, config.RATE_LIMIT_STORAGE_DIR);
 
   const captchaManager = new CaptchaManager({
     hmacSecret: config.SIGNING_SECRET,

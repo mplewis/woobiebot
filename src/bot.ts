@@ -137,7 +137,7 @@ export class Bot {
       return;
     }
 
-    const rateLimitResult = this.rateLimiter.getState(userId);
+    const rateLimitResult = await this.rateLimiter.getState(userId);
     if (!rateLimitResult.allowed) {
       const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
       await message.author.send(

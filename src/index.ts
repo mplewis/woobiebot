@@ -19,7 +19,7 @@ async function main() {
   await indexer.start();
 
   // Initialize rate limiter
-  const rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600);
+  const rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600, config.RATE_LIMIT_STORAGE_DIR);
 
   // Initialize captcha manager
   const captchaManager = new CaptchaManager({

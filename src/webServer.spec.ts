@@ -35,8 +35,7 @@ describe("WebServer", () => {
       CAPTCHA_CHALLENGE_COUNT: 50,
       CAPTCHA_DIFFICULTY: 4,
       DOWNLOADS_PER_HR: 10,
-      DATABASE_PATH: "./test.db",
-      RATE_LIMIT_STATE_PATH: "./rate-limit-state.json",
+      RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-webserver",
       LOG_LEVEL: "error",
       NODE_ENV: "test",
     };
@@ -48,7 +47,7 @@ describe("WebServer", () => {
       expiresMs: mockConfig.URL_EXPIRY_SEC * 1000,
     });
 
-    rateLimiter = new RateLimiter(mockConfig.DOWNLOADS_PER_HR, 3600);
+    rateLimiter = new RateLimiter(mockConfig.DOWNLOADS_PER_HR, 3600, mockConfig.RATE_LIMIT_STORAGE_DIR);
 
     indexer = new FileIndexer(tempDir, [".txt"]);
     await indexer.start();
@@ -67,6 +66,7 @@ describe("WebServer", () => {
   afterEach(async () => {
     await server.stop();
     await indexer.stop();
+    await rateLimiter.clear();
     await rm(tempDir, { recursive: true, force: true });
   });
 
@@ -240,7 +240,7 @@ describe("WebServer", () => {
 
       // Exhaust rate limit
       for (let i = 0; i < mockConfig.DOWNLOADS_PER_HR; i++) {
-        rateLimiter.consume(userId);
+        await rateLimiter.consume(userId);
       }
 
       const challengeData = await captchaManager.generateChallenge(userId, fileId);
