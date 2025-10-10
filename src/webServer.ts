@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import fastifyFormBody from "@fastify/formbody";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Logger } from "pino";
@@ -37,6 +38,7 @@ export class WebServer {
       logger: false,
     });
 
+    this.app.register(fastifyFormBody);
     this.setupStaticFiles();
     this.setupRoutes(deps);
   }
@@ -105,7 +107,7 @@ export class WebServer {
       this.config.WEB_SERVER_BASE_URL,
       userId,
       fileId,
-      this.config.URL_EXPIRES_MS,
+      this.config.URL_EXPIRY_SEC * 1000,
     );
   }
 

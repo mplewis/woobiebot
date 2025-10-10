@@ -50,6 +50,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     // Render captcha page
     const html = templateLoader.renderCaptchaPage({
       challenge: challengeData.challenge,
+      token: challengeData.token,
       signature: challengeData.signature,
       userId,
       fileId,
@@ -71,7 +72,8 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       solution: string;
     };
   }>("/verify", async (request, reply) => {
-    const { userId, fileId, challenge, signature, solution } = request.body;
+    const body = request.body as Record<string, string>;
+    const { userId, fileId, challenge, signature, solution } = body;
 
     if (!userId || !fileId || !challenge || !signature || !solution) {
       return reply.status(400).send({ error: "Missing required fields" });

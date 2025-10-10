@@ -31,7 +31,16 @@
       "Bash(for f in src/*.spec.ts)",
       "Bash(do echo \"=== $f ===\")",
       "Bash(head:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(tsx generate-test-url.ts:*)",
+      "Bash(curl -s \"http://localhost:3000/download?userId=test-user-123&fileId=test-file&expiresAt=1760133479372&signature=d73fc0d054db96acd3d8b0df4136778a06b6e8e0a1c9e0def2f0c65873bed451\")",
+      "Bash(tsx generate-file-id.ts:*)",
+      "Bash(awk:*)",
+      "Bash(curl -s \"http://localhost:3000/download?userId=test-user-123&fileId=pkahu23c&expiresAt=1760133544247&signature=75174f9e1fb304a1bdbe714847e559950537656996197bc8b0e4b1eb23ad77ad\")",
+      "Bash(npx tsx:*)",
+      "Bash(node:*)",
+      "Bash(open test-captcha.html)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []

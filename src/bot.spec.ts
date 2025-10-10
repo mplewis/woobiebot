@@ -23,12 +23,10 @@ beforeEach(() => {
     WEB_SERVER_HOST: "127.0.0.1",
     WEB_SERVER_BASE_URL: "http://localhost:3000",
     SIGNING_SECRET: "test-secret-must-be-at-least-32-chars-long",
-    URL_EXPIRES_MS: 600000,
+    URL_EXPIRY_SEC: 600,
     CAPTCHA_CHALLENGE_COUNT: 3,
     CAPTCHA_DIFFICULTY: 2,
-    CAPTCHA_EXPIRES_MS: 600000,
-    RATE_LIMIT_DOWNLOADS: 10,
-    RATE_LIMIT_WINDOW: 3600000,
+    DOWNLOADS_PER_HR: 10,
     DATABASE_PATH: ":memory:",
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
@@ -36,13 +34,13 @@ beforeEach(() => {
 
   indexer = new FileIndexer(config.FILES_DIRECTORY, config.FILE_EXTENSIONS);
 
-  rateLimiter = new RateLimiter(config.RATE_LIMIT_DOWNLOADS, config.RATE_LIMIT_WINDOW / 1000);
+  rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600);
 
   const captchaManager = new CaptchaManager({
     hmacSecret: config.SIGNING_SECRET,
     challengeCount: config.CAPTCHA_CHALLENGE_COUNT,
     challengeDifficulty: config.CAPTCHA_DIFFICULTY,
-    expiresMs: config.CAPTCHA_EXPIRES_MS,
+    expiresMs: config.URL_EXPIRY_SEC * 1000,
   });
 
   webServer = new WebServer({

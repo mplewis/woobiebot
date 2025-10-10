@@ -19,14 +19,14 @@ async function main() {
   await indexer.start();
 
   // Initialize rate limiter
-  const rateLimiter = new RateLimiter(config.RATE_LIMIT_DOWNLOADS, config.RATE_LIMIT_WINDOW / 1000);
+  const rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600);
 
   // Initialize captcha manager
   const captchaManager = new CaptchaManager({
     hmacSecret: config.SIGNING_SECRET,
     challengeCount: config.CAPTCHA_CHALLENGE_COUNT,
     challengeDifficulty: config.CAPTCHA_DIFFICULTY,
-    expiresMs: config.CAPTCHA_EXPIRES_MS,
+    expiresMs: config.URL_EXPIRY_SEC * 1000,
   });
 
   // Initialize web server

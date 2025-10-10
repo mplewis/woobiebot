@@ -131,30 +131,27 @@ export class Bot {
 
     this.logger.info({ userId, fileId }, "Get command");
 
-    // Check if file exists
     const file = this.indexer.getById(fileId);
     if (!file) {
       await message.author.send(`File with ID \`${fileId}\` not found.`);
       return;
     }
 
-    // Check rate limit
-    const rateLimitResult = this.rateLimiter.consume(userId);
+    const rateLimitResult = this.rateLimiter.getState(userId);
     if (!rateLimitResult.allowed) {
-      const resetTime = new Date(rateLimitResult.resetAt).toLocaleString();
+      const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
       await message.author.send(
-        `You have exceeded your download limit. Your quota will reset at ${resetTime}.`,
+        `Sorry, you're out of downloads. Your quota will reset <t:${resetTimestamp}:R>.`,
       );
       return;
     }
 
-    // Generate signed download URL
     const downloadUrl = this.webServer.generateDownloadUrl(userId, fileId);
-
+    const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
     await message.author.send(
-      `Download link for **${file.name}**:\n${downloadUrl}\n\n` +
-        `This link will expire in ${this.config.URL_EXPIRES_MS / 1000 / 60} minutes.\n` +
-        `You have ${rateLimitResult.remainingTokens} download(s) remaining.`,
+      `[${file.name}](${downloadUrl})\n` +
+        `This link will expire in ${this.config.URL_EXPIRY_SEC / 60} minutes. ` +
+        `You have ${rateLimitResult.remainingTokens} download${s} remaining.`,
     );
   }
 

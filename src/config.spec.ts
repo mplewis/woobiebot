@@ -40,11 +40,11 @@ it("uses custom values when provided", async () => {
   process.env["DISCORD_CLIENT_ID"] = "test_client_id";
   process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
   process.env["WEB_SERVER_PORT"] = "5000";
-  process.env["RATE_LIMIT_DOWNLOADS"] = "20";
+  process.env["DOWNLOADS_PER_HR"] = "20";
 
   const { loadConfig } = await import("./config.js");
   const config = loadConfig();
 
   expect(config.WEB_SERVER_PORT).toBe(5000);
-  expect(config.RATE_LIMIT_DOWNLOADS).toBe(20);
+  expect(config.DOWNLOADS_PER_HR).toBe(20);
 });

@@ -10,17 +10,15 @@
   </head>
   <body>
     <div class="container">
-      <h1>🔒 Verification Required</h1>
-      <p class="subtitle">Complete the challenge below to download your file</p>
-
-      <div id="captcha-container"></div>
-
+      <h1>Just a moment...</h1>
+      <p class="subtitle">Making sure you're not a bot</p>
+      <div id="progress-container" class="progress-container">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
       <div id="status" class="status info">Solving challenge...</div>
-
-      <div id="spinner" class="spinner"></div>
     </div>
 
-    <script type="module">
+    <script>
       {{SCRIPT}}
     </script>
   </body>

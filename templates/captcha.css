@@ -37,12 +37,6 @@ h1 {
   font-size: 16px;
 }
 
-#captcha-container {
-  margin: 30px 0;
-  display: flex;
-  justify-content: center;
-}
-
 .status {
   margin-top: 20px;
   padding: 12px;
@@ -67,22 +61,20 @@ h1 {
   color: #c62828;
 }
 
-.spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #667eea;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
+.progress-container {
+  margin: 30px 0;
+  background: #f3f3f3;
+  border-radius: 20px;
+  height: 40px;
+  position: relative;
+  overflow: hidden;
   display: none;
 }
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  transition: width 0.3s ease;
+  width: 0%;
 }

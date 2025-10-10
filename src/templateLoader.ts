@@ -29,6 +29,7 @@ class TemplateLoader {
    */
   renderCaptchaPage(data: {
     challenge: { c: number; s: number; d: number };
+    token: string;
     signature: string;
     userId: string;
     fileId: string;
@@ -43,6 +44,7 @@ class TemplateLoader {
         "{{SCRIPT}}",
         script
           .replace("{{CHALLENGE}}", JSON.stringify(data.challenge))
+          .replace("{{TOKEN}}", JSON.stringify(data.token))
           .replace("{{SIGNATURE}}", JSON.stringify(data.signature))
           .replace("{{USER_ID}}", JSON.stringify(data.userId))
           .replace("{{FILE_ID}}", JSON.stringify(data.fileId)),

@@ -31,12 +31,10 @@ describe("WebServer", () => {
       WEB_SERVER_HOST: "127.0.0.1",
       WEB_SERVER_BASE_URL: "http://localhost:3001",
       SIGNING_SECRET: "test-signing-secret-key-must-be-long-enough",
-      URL_EXPIRES_MS: 600000,
+      URL_EXPIRY_SEC: 600,
       CAPTCHA_CHALLENGE_COUNT: 50,
       CAPTCHA_DIFFICULTY: 4,
-      CAPTCHA_EXPIRES_MS: 600000,
-      RATE_LIMIT_DOWNLOADS: 10,
-      RATE_LIMIT_WINDOW: 3600000,
+      DOWNLOADS_PER_HR: 10,
       DATABASE_PATH: "./test.db",
       LOG_LEVEL: "error",
       NODE_ENV: "test",
@@ -44,15 +42,12 @@ describe("WebServer", () => {
 
     captchaManager = new CaptchaManager({
       hmacSecret: mockConfig.SIGNING_SECRET,
-      challengeCount: 3, // Reduced for faster tests
-      challengeDifficulty: 2, // Reduced for faster tests
-      expiresMs: mockConfig.CAPTCHA_EXPIRES_MS,
+      challengeCount: 3,
+      challengeDifficulty: 2,
+      expiresMs: mockConfig.URL_EXPIRY_SEC * 1000,
     });
 
-    rateLimiter = new RateLimiter(
-      mockConfig.RATE_LIMIT_DOWNLOADS,
-      mockConfig.RATE_LIMIT_WINDOW / 1000, // Convert ms to seconds
-    );
+    rateLimiter = new RateLimiter(mockConfig.DOWNLOADS_PER_HR, 3600);
 
     indexer = new FileIndexer(tempDir, [".txt"]);
     await indexer.start();
@@ -106,8 +101,7 @@ describe("WebServer", () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.headers["content-type"]).toContain("text/html");
-      expect(response.body).toContain("Verification Required");
-      expect(response.body).toContain("@cap.js/widget");
+      expect(response.body).toContain("Just a moment...");
     });
 
     test("returns 403 for invalid signature", async () => {
@@ -147,7 +141,7 @@ describe("WebServer", () => {
       const url = server.generateDownloadUrl("user123", fileId);
 
       // Fast forward past expiration
-      vi.advanceTimersByTime(mockConfig.URL_EXPIRES_MS + 1000);
+      vi.advanceTimersByTime(mockConfig.URL_EXPIRY_SEC * 1000 + 1000);
 
       const urlObj = new URL(url);
       const path = `${urlObj.pathname}${urlObj.search}`;
@@ -244,7 +238,7 @@ describe("WebServer", () => {
       const userId = "user123";
 
       // Exhaust rate limit
-      for (let i = 0; i < mockConfig.RATE_LIMIT_DOWNLOADS; i++) {
+      for (let i = 0; i < mockConfig.DOWNLOADS_PER_HR; i++) {
         rateLimiter.consume(userId);
       }
 
