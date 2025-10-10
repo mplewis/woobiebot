@@ -1,17 +1,21 @@
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { FSWatcher } from "chokidar";
 import { watch } from "chokidar";
 import { glob } from "fast-glob";
 import Fuse from "fuse.js";
+import { lookup } from "mime-types";
 import { generateFileId } from "./fileId.js";
 import { logger } from "./logger.js";
 
 export interface FileMetadata {
   id: string;
+  name: string;
   path: string;
+  absolutePath: string;
   size: number;
   mtime: Date;
+  mimeType: string;
 }
 
 export interface SearchResult {
@@ -114,12 +118,17 @@ export class FileIndexer {
     try {
       const stats = await stat(fullPath);
       const id = generateFileId(relativePath);
+      const name = basename(relativePath);
+      const mimeType = lookup(relativePath) || "application/octet-stream";
 
       const metadata: FileMetadata = {
         id,
+        name,
         path: relativePath,
+        absolutePath: fullPath,
         size: stats.size,
         mtime: stats.mtime,
+        mimeType,
       };
 
       this.index.set(id, metadata);

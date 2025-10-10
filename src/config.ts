@@ -11,7 +11,15 @@ const configSchema = z.object({
     .string()
     .default(".pdf,.txt,.doc,.docx,.zip,.tar,.gz")
     .transform((val) => val.split(",").map((ext) => ext.trim())),
-  CAPTCHA_PORT: z.coerce.number().int().positive().default(3000),
+  WEB_SERVER_PORT: z.coerce.number().int().positive().default(3000),
+  WEB_SERVER_HOST: z.string().default("0.0.0.0"),
+  WEB_SERVER_BASE_URL: z.string().url().default("http://localhost:3000"),
+  URL_SIGNING_SECRET: z.string().min(32, "URL signing secret must be at least 32 characters"),
+  URL_EXPIRES_MS: z.coerce.number().int().positive().default(600000),
+  CAPTCHA_HMAC_SECRET: z.string().min(32, "HMAC secret must be at least 32 characters"),
+  CAPTCHA_CHALLENGE_COUNT: z.coerce.number().int().positive().default(50),
+  CAPTCHA_DIFFICULTY: z.coerce.number().int().positive().default(4),
+  CAPTCHA_EXPIRES_MS: z.coerce.number().int().positive().default(600000),
   RATE_LIMIT_DOWNLOADS: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_WINDOW: z.coerce.number().int().positive().default(3600000),
   DATABASE_PATH: z.string().default("./woobiebot.db"),

@@ -1,0 +1,324 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { CaptchaManager } from "./captcha.js";
+import type { Config } from "./config.js";
+import { FileIndexer } from "./indexer.js";
+import { logger } from "./logger.js";
+import { RateLimiter } from "./rateLimiter.js";
+import { solveCaptcha } from "./testUtils.js";
+import { WebServer, type WebServerDependencies } from "./webServer.js";
+
+describe("WebServer", () => {
+  let server: WebServer;
+  let tempDir: string;
+  let indexer: FileIndexer;
+  let captchaManager: CaptchaManager;
+  let rateLimiter: RateLimiter;
+  let mockConfig: Config;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "webserver-test-"));
+    await writeFile(join(tempDir, "test.txt"), "Hello, World!");
+
+    mockConfig = {
+      DISCORD_TOKEN: "test_token",
+      DISCORD_CLIENT_ID: "test_client_id",
+      FILES_DIRECTORY: tempDir,
+      FILE_EXTENSIONS: [".txt"],
+      WEB_SERVER_PORT: 3001,
+      WEB_SERVER_HOST: "127.0.0.1",
+      WEB_SERVER_BASE_URL: "http://localhost:3001",
+      URL_SIGNING_SECRET: "test-url-signing-secret-key-123456789",
+      URL_EXPIRES_MS: 600000,
+      CAPTCHA_HMAC_SECRET: "test-hmac-secret-key-for-captcha-123456",
+      CAPTCHA_CHALLENGE_COUNT: 50,
+      CAPTCHA_DIFFICULTY: 4,
+      CAPTCHA_EXPIRES_MS: 600000,
+      RATE_LIMIT_DOWNLOADS: 10,
+      RATE_LIMIT_WINDOW: 3600000,
+      DATABASE_PATH: "./test.db",
+      LOG_LEVEL: "error",
+      NODE_ENV: "test",
+    };
+
+    captchaManager = new CaptchaManager({
+      hmacSecret: mockConfig.CAPTCHA_HMAC_SECRET,
+      challengeCount: 3, // Reduced for faster tests
+      challengeDifficulty: 2, // Reduced for faster tests
+      expiresMs: mockConfig.CAPTCHA_EXPIRES_MS,
+    });
+
+    rateLimiter = new RateLimiter(
+      mockConfig.RATE_LIMIT_DOWNLOADS,
+      mockConfig.RATE_LIMIT_WINDOW / 1000, // Convert ms to seconds
+    );
+
+    indexer = new FileIndexer(tempDir, [".txt"]);
+    await indexer.start();
+
+    const deps: WebServerDependencies = {
+      config: mockConfig,
+      captchaManager,
+      rateLimiter,
+      indexer,
+      logger,
+    };
+
+    server = new WebServer(deps);
+  });
+
+  afterEach(async () => {
+    await server.stop();
+    await indexer.stop();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  describe("generateDownloadUrl", () => {
+    test("generates a valid signed URL", () => {
+      const url = server.generateDownloadUrl("user123", "file456");
+
+      expect(url).toContain(mockConfig.WEB_SERVER_BASE_URL);
+      expect(url).toContain("/download");
+      expect(url).toContain("userId=user123");
+      expect(url).toContain("fileId=file456");
+      expect(url).toContain("signature=");
+      expect(url).toContain("expiresAt=");
+    });
+  });
+
+  describe("GET /download", () => {
+    test("returns captcha page for valid signed URL", async () => {
+      const files = indexer.getAll();
+      const fileId = files[0]?.id;
+      if (!fileId) {
+        throw new Error("No files in indexer");
+      }
+
+      const url = server.generateDownloadUrl("user123", fileId);
+      const urlObj = new URL(url);
+      const path = `${urlObj.pathname}${urlObj.search}`;
+
+      const response = await server.getApp().inject({
+        method: "GET",
+        url: path,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["content-type"]).toContain("text/html");
+      expect(response.body).toContain("Verification Required");
+      expect(response.body).toContain("@cap.js/widget");
+    });
+
+    test("returns 403 for invalid signature", async () => {
+      const response = await server.getApp().inject({
+        method: "GET",
+        url: "/download?userId=user123&fileId=file456&expiresAt=999999999999&signature=invalid",
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: "Invalid or expired download link",
+      });
+    });
+
+    test("returns 404 for non-existent file", async () => {
+      const url = server.generateDownloadUrl("user123", "nonexistent");
+      const urlObj = new URL(url);
+      const path = `${urlObj.pathname}${urlObj.search}`;
+
+      const response = await server.getApp().inject({
+        method: "GET",
+        url: path,
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: "File not found" });
+    });
+
+    test("returns 403 for expired URL", async () => {
+      const files = indexer.getAll();
+      const fileId = files[0]?.id;
+      if (!fileId) {
+        throw new Error("No files in indexer");
+      }
+
+      vi.useFakeTimers();
+      const url = server.generateDownloadUrl("user123", fileId);
+
+      // Fast forward past expiration
+      vi.advanceTimersByTime(mockConfig.URL_EXPIRES_MS + 1000);
+
+      const urlObj = new URL(url);
+      const path = `${urlObj.pathname}${urlObj.search}`;
+
+      const response = await server.getApp().inject({
+        method: "GET",
+        url: path,
+      });
+
+      expect(response.statusCode).toBe(403);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("POST /verify", () => {
+    test("downloads file with valid captcha solution", async () => {
+      const files = indexer.getAll();
+      const fileId = files[0]?.id;
+      if (!fileId) {
+        throw new Error("No files in indexer");
+      }
+
+      const userId = "user123";
+      const challengeData = await captchaManager.generateChallenge(userId, fileId);
+
+      // Solve the captcha
+      const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+      const response = await server.getApp().inject({
+        method: "POST",
+        url: "/verify",
+        payload: {
+          userId,
+          fileId,
+          challenge: JSON.stringify(challengeData.challenge),
+          signature: challengeData.signature,
+          solution: solution.join(","),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["content-type"]).toContain("text/plain");
+      expect(response.headers["content-disposition"]).toContain("test.txt");
+      expect(response.body).toBe("Hello, World!");
+    });
+
+    test("returns 400 for missing fields", async () => {
+      const response = await server.getApp().inject({
+        method: "POST",
+        url: "/verify",
+        payload: {
+          userId: "user123",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: "Missing required fields" });
+    });
+
+    test("returns 403 for invalid captcha solution", async () => {
+      const files = indexer.getAll();
+      const fileId = files[0]?.id;
+      if (!fileId) {
+        throw new Error("No files in indexer");
+      }
+
+      const userId = "user123";
+      const challengeData = await captchaManager.generateChallenge(userId, fileId);
+
+      const response = await server.getApp().inject({
+        method: "POST",
+        url: "/verify",
+        payload: {
+          userId,
+          fileId,
+          challenge: JSON.stringify(challengeData.challenge),
+          signature: challengeData.signature,
+          solution: "0,0,0",
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ error: "Invalid captcha solution" });
+    });
+
+    test("returns 429 when rate limit exceeded", async () => {
+      const files = indexer.getAll();
+      const fileId = files[0]?.id;
+      if (!fileId) {
+        throw new Error("No files in indexer");
+      }
+
+      const userId = "user123";
+
+      // Exhaust rate limit
+      for (let i = 0; i < mockConfig.RATE_LIMIT_DOWNLOADS; i++) {
+        rateLimiter.consume(userId);
+      }
+
+      const challengeData = await captchaManager.generateChallenge(userId, fileId);
+      const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+      const response = await server.getApp().inject({
+        method: "POST",
+        url: "/verify",
+        payload: {
+          userId,
+          fileId,
+          challenge: JSON.stringify(challengeData.challenge),
+          signature: challengeData.signature,
+          solution: solution.join(","),
+        },
+      });
+
+      expect(response.statusCode).toBe(429);
+      expect(response.json()).toEqual({
+        error: "Rate limit exceeded. Please try again later.",
+      });
+    });
+
+    test("returns 404 for non-existent file", async () => {
+      const userId = "user123";
+      const fileId = "nonexistent";
+      const challengeData = await captchaManager.generateChallenge(userId, fileId);
+      const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+      const response = await server.getApp().inject({
+        method: "POST",
+        url: "/verify",
+        payload: {
+          userId,
+          fileId,
+          challenge: JSON.stringify(challengeData.challenge),
+          signature: challengeData.signature,
+          solution: solution.join(","),
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: "File not found" });
+    });
+  });
+
+  describe("GET /health", () => {
+    test("returns health status", async () => {
+      const response = await server.getApp().inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.status).toBe("ok");
+      expect(body.timestamp).toBeTypeOf("number");
+    });
+  });
+
+  describe("start and stop", () => {
+    test("starts and stops server successfully", async () => {
+      const testServer = new WebServer({
+        config: { ...mockConfig, WEB_SERVER_PORT: 3002 },
+        captchaManager,
+        rateLimiter,
+        indexer,
+        logger,
+      });
+
+      await expect(testServer.start()).resolves.toBeUndefined();
+      await expect(testServer.stop()).resolves.toBeUndefined();
+    });
+  });
+});

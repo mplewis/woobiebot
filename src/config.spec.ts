@@ -14,6 +14,8 @@ afterEach(() => {
 it("loads valid configuration", async () => {
   process.env["DISCORD_TOKEN"] = "test_token";
   process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["URL_SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing-urls";
+  process.env["CAPTCHA_HMAC_SECRET"] = "this-is-a-very-long-hmac-secret-key-for-captcha";
 
   const { loadConfig } = await import("./config.js");
   const config = loadConfig();
@@ -21,7 +23,7 @@ it("loads valid configuration", async () => {
   expect(config.DISCORD_TOKEN).toBe("test_token");
   expect(config.DISCORD_CLIENT_ID).toBe("test_client_id");
   expect(config.FILES_DIRECTORY).toBe("./files");
-  expect(config.CAPTCHA_PORT).toBe(3000);
+  expect(config.WEB_SERVER_PORT).toBe(3000);
 });
 
 it("throws error when required fields are missing", async () => {
@@ -36,12 +38,14 @@ it("throws error when required fields are missing", async () => {
 it("uses custom values when provided", async () => {
   process.env["DISCORD_TOKEN"] = "test_token";
   process.env["DISCORD_CLIENT_ID"] = "test_client_id";
-  process.env["CAPTCHA_PORT"] = "5000";
+  process.env["URL_SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing-urls";
+  process.env["CAPTCHA_HMAC_SECRET"] = "this-is-a-very-long-hmac-secret-key-for-captcha";
+  process.env["WEB_SERVER_PORT"] = "5000";
   process.env["RATE_LIMIT_DOWNLOADS"] = "20";
 
   const { loadConfig } = await import("./config.js");
   const config = loadConfig();
 
-  expect(config.CAPTCHA_PORT).toBe(5000);
+  expect(config.WEB_SERVER_PORT).toBe(5000);
   expect(config.RATE_LIMIT_DOWNLOADS).toBe(20);
 });

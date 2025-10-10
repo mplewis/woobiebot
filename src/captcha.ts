@@ -88,6 +88,29 @@ export class CaptchaManager {
   }
 
   /**
+   * Verify a captcha challenge with string-based inputs (for web API).
+   * Parses challenge JSON and solution CSV, then validates.
+   */
+  async verifyChallenge(
+    challengeStr: string,
+    signature: string,
+    solutionStr: string,
+    userId: string,
+    fileId: string,
+  ): Promise<boolean> {
+    try {
+      const challenge = JSON.parse(challengeStr);
+      const solutions = solutionStr.split(",").map((s) => Number.parseInt(s.trim(), 10));
+
+      const result = await this.verifySolution(userId, fileId, challenge, signature, solutions);
+      return result.valid;
+    } catch (error) {
+      logger.error({ error, userId, fileId }, "Failed to parse challenge or solution");
+      return false;
+    }
+  }
+
+  /**
    * Verify a captcha solution for a specific user and file.
    * Checks HMAC signature and validates the PoW solution.
    */

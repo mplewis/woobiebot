@@ -25,10 +25,14 @@
   },
   "dependencies": {
     "@cap.js/server": "^4.0.2",
+    "@cap.js/widget": "^0.1.30",
+    "@fastify/static": "^8.2.0",
     "chokidar": "^4.0.3",
     "dotenv": "^17.2.3",
     "fast-glob": "^3.3.3",
+    "fastify": "^5.6.1",
     "fuse.js": "^7.1.0",
+    "mime-types": "^3.0.1",
     "pino": "^10.0.0",
     "pino-pretty": "^13.1.1",
     "zod": "^4.1.12"
@@ -36,6 +40,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@evilmartians/lefthook": "^1.13.6",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "^24.7.1",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
