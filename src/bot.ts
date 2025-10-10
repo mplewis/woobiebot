@@ -43,6 +43,9 @@ export class Bot {
     this.setupEventHandlers();
   }
 
+  /**
+   * Set up Discord event handlers for ready and message events.
+   */
   private setupEventHandlers(): void {
     this.client.on(Events.ClientReady, () => {
       this.logger.info({ username: this.client.user?.tag }, "Bot logged in");
@@ -53,6 +56,9 @@ export class Bot {
     });
   }
 
+  /**
+   * Handle incoming Discord messages and route to appropriate command handlers.
+   */
   private async handleMessage(message: Message): Promise<void> {
     // Ignore bot messages
     if (message.author.bot) {
@@ -81,6 +87,9 @@ export class Bot {
     }
   }
 
+  /**
+   * Handle the search command to find files matching a query.
+   */
   private async handleSearch(message: Message, query: string): Promise<void> {
     if (!query) {
       await message.reply("Please provide a search term. Usage: `search <term>`");
@@ -110,6 +119,9 @@ export class Bot {
     );
   }
 
+  /**
+   * Handle the get command to generate a download link for a file.
+   */
   private async handleGet(message: Message, userId: string, fileId: string): Promise<void> {
     if (!fileId) {
       await message.reply("Please provide a file ID. Usage: `get <id>`");
@@ -145,6 +157,9 @@ export class Bot {
     );
   }
 
+  /**
+   * Handle the help command to display available commands.
+   */
   private async handleHelp(message: Message): Promise<void> {
     await message.reply(
       "**Woobiebot Commands**\n\n" +

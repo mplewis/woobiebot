@@ -31,7 +31,7 @@ export class WebServer {
   constructor(deps: WebServerDependencies) {
     this.config = deps.config;
     this.logger = deps.logger.child({ component: "WebServer" });
-    this.urlSigner = new UrlSigner(deps.config.URL_SIGNING_SECRET);
+    this.urlSigner = new UrlSigner(deps.config.SIGNING_SECRET);
 
     this.app = Fastify({
       logger: false,

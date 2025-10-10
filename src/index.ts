@@ -23,7 +23,7 @@ async function main() {
 
   // Initialize captcha manager
   const captchaManager = new CaptchaManager({
-    hmacSecret: config.CAPTCHA_HMAC_SECRET,
+    hmacSecret: config.SIGNING_SECRET,
     challengeCount: config.CAPTCHA_CHALLENGE_COUNT,
     challengeDifficulty: config.CAPTCHA_DIFFICULTY,
     expiresMs: config.CAPTCHA_EXPIRES_MS,

@@ -20,7 +20,9 @@
       "Bash(pnpm test:run:*)",
       "mcp__fetch__imageFetch",
       "WebSearch",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(NODE_ENV=test pnpm test:run src/config.spec.ts)",
+      "Bash(NODE_ENV=test pnpm test:run)"
     ],
     "deny": [],
     "ask": []

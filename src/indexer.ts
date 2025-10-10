@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { FSWatcher } from "chokidar";
 import { watch } from "chokidar";
-import { glob } from "fast-glob";
+import glob from "fast-glob";
 import Fuse from "fuse.js";
 import { lookup } from "mime-types";
 import { generateFileId } from "./fileId.js";

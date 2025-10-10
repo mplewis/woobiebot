@@ -30,9 +30,8 @@ describe("WebServer", () => {
       WEB_SERVER_PORT: 3001,
       WEB_SERVER_HOST: "127.0.0.1",
       WEB_SERVER_BASE_URL: "http://localhost:3001",
-      URL_SIGNING_SECRET: "test-url-signing-secret-key-123456789",
+      SIGNING_SECRET: "test-signing-secret-key-must-be-long-enough",
       URL_EXPIRES_MS: 600000,
-      CAPTCHA_HMAC_SECRET: "test-hmac-secret-key-for-captcha-123456",
       CAPTCHA_CHALLENGE_COUNT: 50,
       CAPTCHA_DIFFICULTY: 4,
       CAPTCHA_EXPIRES_MS: 600000,
@@ -44,7 +43,7 @@ describe("WebServer", () => {
     };
 
     captchaManager = new CaptchaManager({
-      hmacSecret: mockConfig.CAPTCHA_HMAC_SECRET,
+      hmacSecret: mockConfig.SIGNING_SECRET,
       challengeCount: 3, // Reduced for faster tests
       challengeDifficulty: 2, // Reduced for faster tests
       expiresMs: mockConfig.CAPTCHA_EXPIRES_MS,

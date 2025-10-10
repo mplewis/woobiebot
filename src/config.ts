@@ -1,7 +1,9 @@
 import dotenv from "dotenv";
 import { z } from "zod";
 
-dotenv.config();
+if (process.env["NODE_ENV"] !== "test") {
+  dotenv.config();
+}
 
 const configSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, "Discord token is required"),
@@ -9,14 +11,13 @@ const configSchema = z.object({
   FILES_DIRECTORY: z.string().default("./files"),
   FILE_EXTENSIONS: z
     .string()
-    .default(".pdf,.txt,.doc,.docx,.zip,.tar,.gz")
-    .transform((val) => val.split(",").map((ext) => ext.trim())),
+    .default("pdf,txt,doc,docx,zip,tar,gz")
+    .transform((val) => val.split(",").map((ext) => `.${ext.trim().replace(/^\./, "")}`)),
   WEB_SERVER_PORT: z.coerce.number().int().positive().default(3000),
   WEB_SERVER_HOST: z.string().default("0.0.0.0"),
   WEB_SERVER_BASE_URL: z.string().url().default("http://localhost:3000"),
-  URL_SIGNING_SECRET: z.string().min(32, "URL signing secret must be at least 32 characters"),
+  SIGNING_SECRET: z.string().min(32, "Signing secret must be at least 32 characters"),
   URL_EXPIRES_MS: z.coerce.number().int().positive().default(600000),
-  CAPTCHA_HMAC_SECRET: z.string().min(32, "HMAC secret must be at least 32 characters"),
   CAPTCHA_CHALLENGE_COUNT: z.coerce.number().int().positive().default(50),
   CAPTCHA_DIFFICULTY: z.coerce.number().int().positive().default(4),
   CAPTCHA_EXPIRES_MS: z.coerce.number().int().positive().default(600000),
