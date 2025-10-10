@@ -21,8 +21,6 @@ const configSchema = z.object({
   CAPTCHA_CHALLENGE_COUNT: z.coerce.number().int().positive().default(50),
   CAPTCHA_DIFFICULTY: z.coerce.number().int().positive().default(4),
   DOWNLOADS_PER_HR: z.coerce.number().int().positive().default(10),
-  DATABASE_PATH: z.string().default("./woobiebot.db"),
-  RATE_LIMIT_STATE_PATH: z.string().default("./rate-limit-state.json"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
