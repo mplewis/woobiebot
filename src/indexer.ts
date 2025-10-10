@@ -48,7 +48,7 @@ export class FileIndexer {
       "Starting file indexer",
     );
     await this._scanDirectory();
-    this._setupWatcher();
+    // this._setupWatcher(); // TODO: Fix chokidar recursion issue
     this._initializeSearch();
     logger.info({ fileCount: this.index.size }, "File indexer started");
   }
@@ -161,22 +161,23 @@ export class FileIndexer {
       cwd: this.directory,
       persistent: true,
       ignoreInitial: true,
+      followSymlinks: false,
       awaitWriteFinish: {
         stabilityThreshold: 100,
         pollInterval: 50,
       },
     });
 
-    this.watcher.on("add", (path) => {
-      this._indexFile(path);
+    this.watcher.on("add", (relativePath) => {
+      this._indexFile(relativePath);
     });
 
-    this.watcher.on("change", (path) => {
-      this._indexFile(path);
+    this.watcher.on("change", (relativePath) => {
+      this._indexFile(relativePath);
     });
 
-    this.watcher.on("unlink", (path) => {
-      this._removeFile(path);
+    this.watcher.on("unlink", (relativePath) => {
+      this._removeFile(relativePath);
     });
 
     this.watcher.on("error", (error) => {

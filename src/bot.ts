@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, type Message } from "discord.js";
+import { Client, Events, GatewayIntentBits, Partials, type Message } from "discord.js";
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
 import type { FileIndexer } from "./indexer.js";
@@ -38,6 +38,7 @@ export class Bot {
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent,
       ],
+      partials: [Partials.Channel, Partials.Message],
     });
 
     this.setupEventHandlers();
@@ -60,6 +61,18 @@ export class Bot {
    * Handle incoming Discord messages and route to appropriate command handlers.
    */
   private async handleMessage(message: Message): Promise<void> {
+    this.logger.info(
+      {
+        author: message.author.tag,
+        authorId: message.author.id,
+        isBot: message.author.bot,
+        channelType: message.channel.type,
+        isDM: message.channel.isDMBased(),
+        content: message.content,
+      },
+      "Received message",
+    );
+
     // Ignore bot messages
     if (message.author.bot) {
       return;

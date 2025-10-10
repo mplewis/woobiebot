@@ -22,7 +22,12 @@
       "WebSearch",
       "Bash(pnpm add:*)",
       "Bash(NODE_ENV=test pnpm test:run src/config.spec.ts)",
-      "Bash(NODE_ENV=test pnpm test:run)"
+      "Bash(NODE_ENV=test pnpm test:run)",
+      "Bash(pnpm dev:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(killall:*)"
     ],
     "deny": [],
     "ask": []
