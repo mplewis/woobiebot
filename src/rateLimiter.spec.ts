@@ -1,11 +1,24 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RateLimiter } from "./rateLimiter.js";
 
 describe("RateLimiter", () => {
   let limiter: RateLimiter;
+  let tempDir: string;
+  let testFilePath: string;
 
   beforeEach(() => {
     limiter = new RateLimiter(10, 3600);
+    tempDir = mkdtempSync(join(tmpdir(), "rate-limiter-test-"));
+    testFilePath = join(tempDir, "rate-limit-state.json");
+  });
+
+  afterEach(() => {
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("allows requests when under limit", () => {
@@ -184,5 +197,70 @@ describe("RateLimiter", () => {
     result = limiter.consume("user1", new Date(10000));
     expect(result.allowed).toBe(true);
     expect(result.remainingTokens).toBe(1);
+  });
+
+  it("saves state to disk", async () => {
+    limiter.consume("user1");
+    limiter.consume("user1");
+    limiter.consume("user2");
+
+    await limiter.save(testFilePath);
+
+    expect(existsSync(testFilePath)).toBe(true);
+  });
+
+  it("loads state from disk", async () => {
+    limiter.consume("user1");
+    limiter.consume("user1");
+    limiter.consume("user2");
+
+    await limiter.save(testFilePath);
+
+    const newLimiter = new RateLimiter(10, 3600);
+    await newLimiter.load(testFilePath);
+
+    const state1 = newLimiter.getState("user1");
+    const state2 = newLimiter.getState("user2");
+
+    expect(state1.remainingTokens).toBe(8);
+    expect(state2.remainingTokens).toBe(9);
+  });
+
+  it("handles loading from non-existent file gracefully", async () => {
+    const nonExistentPath = join(tempDir, "does-not-exist.json");
+    await expect(limiter.load(nonExistentPath)).resolves.not.toThrow();
+
+    const state = limiter.getState("user1");
+    expect(state.remainingTokens).toBe(10);
+  });
+
+  it("persists and restores token counts correctly", async () => {
+    limiter.consume("user1", new Date(0));
+    limiter.consume("user1", new Date(0));
+    limiter.consume("user1", new Date(0));
+
+    await limiter.save(testFilePath);
+
+    const newLimiter = new RateLimiter(10, 3600);
+    await newLimiter.load(testFilePath);
+
+    const result = newLimiter.consume("user1", new Date(0));
+    expect(result.allowed).toBe(true);
+    expect(result.remainingTokens).toBe(6);
+  });
+
+  it("persists lastRefill timestamp correctly", async () => {
+    limiter = new RateLimiter(10, 1);
+    limiter.consume("user1", new Date(0));
+    limiter.consume("user1", new Date(0));
+
+    await limiter.save(testFilePath);
+
+    const newLimiter = new RateLimiter(10, 1);
+    await newLimiter.load(testFilePath);
+
+    const result = newLimiter.consume("user1", new Date(1000));
+    expect(result.allowed).toBe(true);
+    expect(result.remainingTokens).toBe(9);
   });
 });

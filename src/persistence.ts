@@ -16,14 +16,9 @@ export class RateLimitPersistence {
    * Save rate limit state to disk.
    */
   async save(states: UserRateLimit[]): Promise<void> {
-    try {
-      const data = JSON.stringify(states, null, 2);
-      await writeFile(this.filePath, data, "utf-8");
-      logger.debug({ filePath: this.filePath, userCount: states.length }, "Saved rate limit state");
-    } catch (error) {
-      logger.error({ filePath: this.filePath, error }, "Failed to save rate limit state");
-      throw error;
-    }
+    const data = JSON.stringify(states, null, 2);
+    await writeFile(this.filePath, data, "utf-8");
+    logger.debug({ filePath: this.filePath, userCount: states.length }, "Saved rate limit state");
   }
 
   /**
@@ -43,7 +38,6 @@ export class RateLimitPersistence {
         logger.debug({ filePath: this.filePath }, "No existing rate limit state file");
         return [];
       }
-      logger.error({ filePath: this.filePath, error }, "Failed to load rate limit state");
       throw error;
     }
   }

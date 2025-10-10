@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { logger } from "./logger.js";
 
 /**
@@ -147,5 +148,30 @@ export class RateLimiter {
   clear(): void {
     this.users.clear();
     logger.info("Cleared all rate limit data");
+  }
+
+  /**
+   * Save rate limit state to a file.
+   */
+  async save(filePath: string): Promise<void> {
+    const state = this.exportState();
+    const json = JSON.stringify(state, null, 2);
+    writeFileSync(filePath, json, "utf-8");
+    logger.info({ filePath, userCount: state.length }, "Saved rate limit state");
+  }
+
+  /**
+   * Load rate limit state from a file.
+   */
+  async load(filePath: string): Promise<void> {
+    if (!existsSync(filePath)) {
+      logger.info({ filePath }, "No existing rate limit state file found");
+      return;
+    }
+
+    const json = readFileSync(filePath, "utf-8");
+    const state = JSON.parse(json) as UserRateLimit[];
+    this.importState(state);
+    logger.info({ filePath, userCount: state.length }, "Loaded rate limit state");
   }
 }

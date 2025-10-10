@@ -20,6 +20,7 @@ async function main() {
 
   // Initialize rate limiter
   const rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600);
+  await rateLimiter.load(config.RATE_LIMIT_STATE_PATH);
 
   // Initialize captcha manager
   const captchaManager = new CaptchaManager({
@@ -60,6 +61,7 @@ async function main() {
     try {
       await bot.stop();
       await webServer.stop();
+      await rateLimiter.save(config.RATE_LIMIT_STATE_PATH);
       await indexer.stop();
       logger.info("Shutdown complete");
       process.exit(0);

@@ -40,7 +40,8 @@
       "Bash(npx tsx:*)",
       "Bash(node:*)",
       "Bash(open test-captcha.html)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(NODE_ENV=test pnpm test:run src/rateLimiter.spec.ts)"
     ],
     "deny": [],
     "ask": []

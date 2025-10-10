@@ -36,6 +36,7 @@ describe("WebServer", () => {
       CAPTCHA_DIFFICULTY: 4,
       DOWNLOADS_PER_HR: 10,
       DATABASE_PATH: "./test.db",
+      RATE_LIMIT_STATE_PATH: "./rate-limit-state.json",
       LOG_LEVEL: "error",
       NODE_ENV: "test",
     };

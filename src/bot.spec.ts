@@ -28,6 +28,7 @@ beforeEach(() => {
     CAPTCHA_DIFFICULTY: 2,
     DOWNLOADS_PER_HR: 10,
     DATABASE_PATH: ":memory:",
+    RATE_LIMIT_STATE_PATH: "./rate-limit-state.json",
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
   };
