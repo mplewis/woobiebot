@@ -15,7 +15,9 @@
       "Bash(pnpm remove:*)",
       "Bash(pnpm lefthook run:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(pnpm prettier:*)"
+      "Bash(pnpm prettier:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm test:run:*)"
     ],
     "deny": [],
     "ask": []
