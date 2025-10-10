@@ -24,6 +24,7 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
+    "@cap.js/server": "^4.0.2",
     "chokidar": "^4.0.3",
     "dotenv": "^17.2.3",
     "fast-glob": "^3.3.3",
