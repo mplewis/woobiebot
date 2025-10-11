@@ -132,7 +132,7 @@ describe("CaptchaManager", () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.reason).toBe("Challenge mismatch");
+      expect(result.reason).toBe("Invalid signature");
     });
 
     it("accepts correctly solved captcha", async () => {

@@ -43,7 +43,6 @@ export class CaptchaManager {
   private readonly challengeCount: number;
   private readonly challengeDifficulty: number;
   private readonly expiresMs: number;
-  private readonly challenges: Map<string, { c: number; s: number; d: number }> = new Map();
 
   constructor(config: CaptchaConfig) {
     this.hmacSecret = config.hmacSecret;
@@ -72,8 +71,6 @@ export class CaptchaManager {
     if (!token) {
       throw new Error("Failed to generate challenge token");
     }
-
-    this.challenges.set(token, result.challenge);
 
     const challengeStr = JSON.stringify(result.challenge);
     const signature = this.createSignature(userId, fileId, token, challengeStr);
@@ -130,21 +127,6 @@ export class CaptchaManager {
     signature: string,
     solutions: number[],
   ): Promise<VerificationResult> {
-    const storedChallenge = this.challenges.get(token);
-    if (!storedChallenge) {
-      logger.warn({ userId, fileId, token }, "Challenge not found");
-      return { valid: false, reason: "Challenge not found" };
-    }
-
-    if (
-      storedChallenge.c !== challenge.c ||
-      storedChallenge.s !== challenge.s ||
-      storedChallenge.d !== challenge.d
-    ) {
-      logger.warn({ userId, fileId, token }, "Challenge mismatch");
-      return { valid: false, reason: "Challenge mismatch" };
-    }
-
     const challengeStr = JSON.stringify(challenge);
     const expectedSignature = this.createSignature(userId, fileId, token, challengeStr);
 
@@ -158,8 +140,6 @@ export class CaptchaManager {
         token,
         solutions,
       });
-
-      this.challenges.delete(token);
 
       if (result.success) {
         logger.info({ userId, fileId, token }, "Captcha solution verified");
