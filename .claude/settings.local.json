@@ -46,7 +46,11 @@
       "Bash(docker run:*)",
       "Bash(docker logs:*)",
       "Bash(docker rm:*)",
-      "Bash(pnpm check:fix:*)"
+      "Bash(pnpm check:fix:*)",
+      "Bash(NODE_ENV=test pnpm test:run src/webServer.spec.ts)",
+      "Bash(docker stop:*)",
+      "Bash(docker images:*)",
+      "Bash(docker history:*)"
     ],
     "deny": [],
     "ask": []

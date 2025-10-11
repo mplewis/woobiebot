@@ -39,8 +39,31 @@ export class WebServer {
     });
 
     this.app.register(fastifyFormBody);
+    this.setupErrorHandler();
     this.setupStaticFiles();
     this.setupRoutes(deps);
+  }
+
+  /**
+   * Set up global error handler to catch unhandled errors.
+   * Logs full error details server-side but only returns generic messages for 5xx errors.
+   */
+  private setupErrorHandler(): void {
+    this.app.setErrorHandler((error, _request, reply) => {
+      this.logger.error(
+        {
+          err: error,
+          stack: error.stack,
+          statusCode: error.statusCode,
+        },
+        "Unhandled error in request handler",
+      );
+
+      const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+      return reply.status(statusCode).send({
+        error: statusCode >= 500 ? "Internal server error" : error.message || "Bad request",
+      });
+    });
   }
 
   private setupStaticFiles(): void {
