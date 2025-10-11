@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.spec.ts"],
     env: {
       NODE_ENV: "test",
@@ -19,6 +20,7 @@ export default defineConfig({
         "**/*.spec.ts",
         "templates/**",
         "src/index.ts",
+        "src/bot.ts",
       ],
       thresholds: {
         lines: 80,

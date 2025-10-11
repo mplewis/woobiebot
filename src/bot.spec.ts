@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
@@ -58,6 +58,12 @@ beforeEach(() => {
     webServer,
     logger,
   });
+});
+
+afterEach(async () => {
+  await indexer.stop();
+  await webServer.stop();
+  await rateLimiter.clear();
 });
 
 it("creates bot instance", () => {
