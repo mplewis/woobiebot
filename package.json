@@ -10,8 +10,8 @@
   "packageManager": "pnpm@10.14.0",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit && biome check . && prettier --check . && pnpm test:run",
-    "check:fix": "tsc --noEmit && biome check --write . && prettier --write . && pnpm test:run",
+    "check": "tsc --noEmit && biome check . && prettier --check . && pnpm test:coverage",
+    "check:fix": "tsc --noEmit && biome check --write . && prettier --write . && pnpm test:coverage",
     "dev": "pnpm build && pnpm start",
     "format:fix": "prettier --write .",
     "format": "prettier --check .",

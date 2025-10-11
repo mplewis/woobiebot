@@ -45,7 +45,8 @@
       "Bash(docker build:*)",
       "Bash(docker run:*)",
       "Bash(docker logs:*)",
-      "Bash(docker rm:*)"
+      "Bash(docker rm:*)",
+      "Bash(pnpm check:fix:*)"
     ],
     "deny": [],
     "ask": []
