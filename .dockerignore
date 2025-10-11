@@ -1,0 +1,48 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build outputs
+dist
+coverage
+*.log
+
+# Tests
+**/*.spec.ts
+**/*.test.ts
+src/testUtils.ts
+vitest.config.ts
+
+# Development files
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.md
+!README.md
+
+# Environment files
+.env
+.env.*
+
+# CI/CD
+.github
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.swp
+.DS_Store
+
+# Lefthook
+.lefthook
+lefthook.yml
+
+# Prettier/Biome
+.prettierrc
+.prettierignore
+biome.json

@@ -41,7 +41,11 @@
       "Bash(node:*)",
       "Bash(open test-captcha.html)",
       "Bash(kill:*)",
-      "Bash(NODE_ENV=test pnpm test:run src/rateLimiter.spec.ts)"
+      "Bash(NODE_ENV=test pnpm test:run src/rateLimiter.spec.ts)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker rm:*)"
     ],
     "deny": [],
     "ask": []
