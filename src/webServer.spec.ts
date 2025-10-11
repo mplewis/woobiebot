@@ -181,6 +181,7 @@ describe("POST /verify", () => {
       payload: {
         userId,
         fileId,
+        token: challengeData.token,
         challenge: JSON.stringify(challengeData.challenge),
         signature: challengeData.signature,
         solution: solution.join(","),
@@ -222,6 +223,7 @@ describe("POST /verify", () => {
       payload: {
         userId,
         fileId,
+        token: challengeData.token,
         challenge: JSON.stringify(challengeData.challenge),
         signature: challengeData.signature,
         solution: "0,0,0",
@@ -255,6 +257,7 @@ describe("POST /verify", () => {
       payload: {
         userId,
         fileId,
+        token: challengeData.token,
         challenge: JSON.stringify(challengeData.challenge),
         signature: challengeData.signature,
         solution: solution.join(","),
@@ -279,6 +282,7 @@ describe("POST /verify", () => {
       payload: {
         userId,
         fileId,
+        token: challengeData.token,
         challenge: JSON.stringify(challengeData.challenge),
         signature: challengeData.signature,
         solution: solution.join(","),
@@ -347,6 +351,7 @@ describe("error handling", () => {
       payload: {
         userId,
         fileId,
+        token: challengeData.token,
         challenge: JSON.stringify(challengeData.challenge),
         signature: challengeData.signature,
         solution: solution.join(","),

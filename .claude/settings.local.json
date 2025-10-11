@@ -50,7 +50,8 @@
       "Bash(NODE_ENV=test pnpm test:run src/webServer.spec.ts)",
       "Bash(docker stop:*)",
       "Bash(docker images:*)",
-      "Bash(docker history:*)"
+      "Bash(docker history:*)",
+      "Bash(NODE_ENV=test pnpm test:run src/captcha.spec.ts)"
     ],
     "deny": [],
     "ask": []

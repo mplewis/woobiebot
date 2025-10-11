@@ -55,6 +55,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challenge.token,
         challenge.challenge,
         fakeSignature,
         [0, 1, 2],
@@ -70,6 +71,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user2",
         "file1",
+        challenge.token,
         challenge.challenge,
         challenge.signature,
         [0, 1, 2],
@@ -85,6 +87,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file2",
+        challenge.token,
         challenge.challenge,
         challenge.signature,
         [0, 1, 2],
@@ -101,6 +104,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challenge.token,
         challenge.challenge,
         challenge.signature,
         invalidSolutions,
@@ -121,13 +125,14 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challenge.token,
         tamperedChallenge,
         challenge.signature,
         [0, 1, 2],
       );
 
       expect(result.valid).toBe(false);
-      expect(result.reason).toBe("Challenge not found");
+      expect(result.reason).toBe("Challenge mismatch");
     });
 
     it("accepts correctly solved captcha", async () => {
@@ -145,6 +150,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challengeData.token,
         challengeData.challenge,
         challengeData.signature,
         solutions,
@@ -173,6 +179,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challenge.token,
         challenge.challenge,
         invalidSignature,
         [0, 1, 2],
@@ -189,6 +196,7 @@ describe("CaptchaManager", () => {
       const result = await manager.verifySolution(
         "user1",
         "file1",
+        challenge.token,
         challenge.challenge,
         invalidSignature,
         [0, 1, 2],

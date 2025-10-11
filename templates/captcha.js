@@ -106,6 +106,7 @@ async function submitSolution(solution) {
       body: JSON.stringify({
         userId,
         fileId,
+        token,
         challenge: JSON.stringify(challenge),
         signature,
         solution: solution.join(','),

@@ -92,6 +92,7 @@ export class CaptchaManager {
    * Parse challenge JSON and solution CSV, then validate.
    */
   async verifyChallenge(
+    token: string,
     challengeStr: string,
     signature: string,
     solutionStr: string,
@@ -102,7 +103,14 @@ export class CaptchaManager {
       const challenge = JSON.parse(challengeStr);
       const solutions = solutionStr.split(",").map((s) => Number.parseInt(s.trim(), 10));
 
-      const result = await this.verifySolution(userId, fileId, challenge, signature, solutions);
+      const result = await this.verifySolution(
+        userId,
+        fileId,
+        token,
+        challenge,
+        signature,
+        solutions,
+      );
       return result.valid;
     } catch (error) {
       logger.error({ error, userId, fileId }, "Failed to parse challenge or solution");
@@ -117,21 +125,24 @@ export class CaptchaManager {
   async verifySolution(
     userId: string,
     fileId: string,
+    token: string,
     challenge: { c: number; s: number; d: number },
     signature: string,
     solutions: number[],
   ): Promise<VerificationResult> {
-    let token: string | null = null;
-    for (const [t, c] of this.challenges.entries()) {
-      if (c.c === challenge.c && c.s === challenge.s && c.d === challenge.d) {
-        token = t;
-        break;
-      }
+    const storedChallenge = this.challenges.get(token);
+    if (!storedChallenge) {
+      logger.warn({ userId, fileId, token }, "Challenge not found");
+      return { valid: false, reason: "Challenge not found" };
     }
 
-    if (!token) {
-      logger.warn({ userId, fileId }, "Challenge not found");
-      return { valid: false, reason: "Challenge not found" };
+    if (
+      storedChallenge.c !== challenge.c ||
+      storedChallenge.s !== challenge.s ||
+      storedChallenge.d !== challenge.d
+    ) {
+      logger.warn({ userId, fileId, token }, "Challenge mismatch");
+      return { valid: false, reason: "Challenge mismatch" };
     }
 
     const challengeStr = JSON.stringify(challenge);

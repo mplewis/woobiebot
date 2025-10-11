@@ -67,20 +67,22 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     Body: {
       userId: string;
       fileId: string;
+      token: string;
       challenge: string;
       signature: string;
       solution: string;
     };
   }>("/verify", async (request, reply) => {
     const body = request.body as Record<string, string>;
-    const { userId, fileId, challenge, signature, solution } = body;
+    const { userId, fileId, token, challenge, signature, solution } = body;
 
-    if (!userId || !fileId || !challenge || !signature || !solution) {
+    if (!userId || !fileId || !token || !challenge || !signature || !solution) {
       return reply.status(400).send({ error: "Missing required fields" });
     }
 
     // Verify captcha solution
     const isValid = await captchaManager.verifyChallenge(
+      token,
       challenge,
       signature,
       solution,
