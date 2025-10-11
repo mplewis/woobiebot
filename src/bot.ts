@@ -149,10 +149,11 @@ export class Bot {
     }
 
     const downloadUrl = this.webServer.generateDownloadUrl(userId, fileId);
+    const expiryTimestamp = Math.floor((Date.now() + this.config.URL_EXPIRY_SEC * 1000) / 1000);
     const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
     await message.author.send(
       `[${file.name}](${downloadUrl})\n` +
-        `This link will expire in ${this.config.URL_EXPIRY_SEC / 60} minutes. ` +
+        `This link will expire <t:${expiryTimestamp}:R>. ` +
         `You have ${rateLimitResult.remainingTokens} download${s} remaining.`,
     );
   }
