@@ -109,7 +109,7 @@ export class Bot {
     const maxResults = 10;
     const displayed = results.slice(0, maxResults);
     const resultList = displayed
-      .map((result) => `• \`${result.file.id}\` - ${result.file.name} (${result.file.mimeType})`)
+      .map((result) => `• \`${result.file.id}\` - ${result.file.name}`)
       .join("\n");
 
     const more =
