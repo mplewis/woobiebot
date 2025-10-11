@@ -1,3 +1,4 @@
+import { GatewayIntentBits } from "discord.js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
@@ -17,6 +18,7 @@ beforeEach(() => {
   config = {
     DISCORD_TOKEN: "test-token",
     DISCORD_CLIENT_ID: "test-client-id",
+    DISCORD_GUILD_ID: undefined,
     FILES_DIRECTORY: "./test-files",
     FILE_EXTENSIONS: [".txt"],
     WEB_SERVER_PORT: 3000,
@@ -71,7 +73,9 @@ it("creates bot instance", () => {
   expect(bot.getClient()).toBeDefined();
 });
 
-it("bot client has correct intents", () => {
+it("bot client has only Guilds intent", () => {
   const client = bot.getClient();
-  expect(client.options.intents).toBeDefined();
+  const intents = client.options.intents;
+  expect(intents).toBeDefined();
+  expect(intents?.bitfield).toBe(GatewayIntentBits.Guilds);
 });

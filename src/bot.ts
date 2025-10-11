@@ -1,6 +1,7 @@
-import { Client, Events, GatewayIntentBits, type Message, Partials } from "discord.js";
+import { type ChatInputCommandInteraction, Client, Events, GatewayIntentBits } from "discord.js";
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
+import { deployCommands } from "./deployCommands.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
@@ -32,79 +33,93 @@ export class Bot {
     this.logger = deps.logger.child({ component: "Bot" });
 
     this.client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent,
-      ],
-      partials: [Partials.Channel, Partials.Message],
+      intents: [GatewayIntentBits.Guilds],
     });
 
     this.setupEventHandlers();
   }
 
   /**
-   * Set up Discord event handlers for ready and message events.
+   * Set up Discord event handlers for ready and interaction events.
    */
   private setupEventHandlers(): void {
     this.client.on(Events.ClientReady, () => {
       this.logger.info({ username: this.client.user?.tag }, "Bot logged in");
     });
 
-    this.client.on(Events.MessageCreate, async (message) => {
-      await this.handleMessage(message);
+    this.client.on(Events.InteractionCreate, async (interaction) => {
+      if (!interaction.isChatInputCommand()) {
+        return;
+      }
+      await this.handleCommand(interaction);
     });
   }
 
   /**
-   * Handle incoming Discord messages and route to appropriate command handlers.
+   * Handle incoming slash command interactions and route to appropriate command handlers.
+   *
+   * @param interaction - The slash command interaction to handle
    */
-  private async handleMessage(message: Message): Promise<void> {
-    // Ignore bot messages
-    if (message.author.bot) {
-      return;
-    }
+  private async handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId = interaction.user.id;
 
-    // Only respond to DMs
-    if (!message.channel.isDMBased()) {
-      return;
-    }
-
-    const content = message.content.trim();
-    const userId = message.author.id;
-
-    // Parse command
-    if (content.startsWith("search ")) {
-      const query = content.substring(7).trim();
-      await this.handleSearch(message, query);
-    } else if (content.startsWith("get ")) {
-      const fileId = content.substring(4).trim();
-      await this.handleGet(message, userId, fileId);
-    } else if (content === "quota") {
-      await this.handleQuota(message, userId);
-    } else if (content === "help") {
-      await this.handleHelp(message);
-    } else {
-      await message.author.send("Unknown command. Use `help` to see available commands.");
+    try {
+      switch (interaction.commandName) {
+        case "search": {
+          const query = interaction.options.getString("query", true);
+          await this.handleSearch(interaction, query);
+          break;
+        }
+        case "get": {
+          const fileId = interaction.options.getString("fileid", true);
+          await this.handleGet(interaction, userId, fileId);
+          break;
+        }
+        case "quota": {
+          await this.handleQuota(interaction, userId);
+          break;
+        }
+        case "help": {
+          await this.handleHelp(interaction);
+          break;
+        }
+        default: {
+          await interaction.reply({
+            content: "Unknown command. Use `/help` to see available commands.",
+            ephemeral: true,
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error({ error, userId, command: interaction.commandName }, "Command error");
+      const content = "An error occurred while processing your command.";
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content, ephemeral: true });
+      } else {
+        await interaction.reply({ content, ephemeral: true });
+      }
     }
   }
 
   /**
    * Handle the search command to find files matching a query.
+   *
+   * @param interaction - The slash command interaction
+   * @param query - Search term to find files
    */
-  private async handleSearch(message: Message, query: string): Promise<void> {
-    if (!query) {
-      await message.author.send("Please provide a search term. Usage: `search <term>`");
-      return;
-    }
-
-    this.logger.info({ userId: message.author.id, query }, "Search command");
+  private async handleSearch(
+    interaction: ChatInputCommandInteraction,
+    query: string,
+  ): Promise<void> {
+    this.logger.info({ userId: interaction.user.id, query }, "Search command");
 
     const results = this.indexer.search(query);
 
     if (results.length === 0) {
-      await message.author.send(`No files found matching "${query}".`);
+      await interaction.reply({
+        content: `No files found matching "${query}".`,
+        ephemeral: true,
+      });
       return;
     }
 
@@ -117,91 +132,117 @@ export class Bot {
     const more =
       results.length > maxResults ? `\n\n...and ${results.length - maxResults} more` : "";
 
-    await message.author.send(
-      `Found ${results.length} file(s) matching "${query}":\n\n${resultList}${more}\n\nUse \`get <id>\` to download a file.`,
-    );
+    await interaction.reply({
+      content: `Found ${results.length} file(s) matching "${query}":\n\n${resultList}${more}\n\nUse \`/get <id>\` to download a file.`,
+      ephemeral: true,
+    });
   }
 
   /**
    * Handle the get command to generate a download link for a file.
+   *
+   * @param interaction - The slash command interaction
+   * @param userId - ID of the user requesting the file
+   * @param fileId - ID of the file to download
    */
-  private async handleGet(message: Message, userId: string, fileId: string): Promise<void> {
-    if (!fileId) {
-      await message.author.send("Please provide a file ID. Usage: `get <id>`");
-      return;
-    }
-
+  private async handleGet(
+    interaction: ChatInputCommandInteraction,
+    userId: string,
+    fileId: string,
+  ): Promise<void> {
     this.logger.info({ userId, fileId }, "Get command");
 
     const file = this.indexer.getById(fileId);
     if (!file) {
-      await message.author.send(`File with ID \`${fileId}\` not found.`);
+      await interaction.reply({
+        content: `File with ID \`${fileId}\` not found.`,
+        ephemeral: true,
+      });
       return;
     }
 
     const rateLimitResult = await this.rateLimiter.getState(userId);
     if (!rateLimitResult.allowed) {
       const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
-      await message.author.send(
-        `Sorry, you're out of downloads. Your quota will reset <t:${resetTimestamp}:R>.`,
-      );
+      await interaction.reply({
+        content: `Sorry, you're out of downloads. Your quota will reset <t:${resetTimestamp}:R>.`,
+        ephemeral: true,
+      });
       return;
     }
 
     const downloadUrl = this.webServer.generateDownloadUrl(userId, fileId);
     const expiryTimestamp = Math.floor((Date.now() + this.config.URL_EXPIRY_SEC * 1000) / 1000);
     const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
-    await message.author.send(
-      `[${file.name}](${downloadUrl})\n` +
+    await interaction.reply({
+      content:
+        `[${file.name}](${downloadUrl})\n` +
         `This link will expire <t:${expiryTimestamp}:R>. ` +
         `You have ${rateLimitResult.remainingTokens} download${s} remaining.`,
-    );
+      ephemeral: true,
+    });
   }
 
   /**
    * Handle the quota command to display current quota status.
+   *
+   * @param interaction - The slash command interaction
+   * @param userId - ID of the user to check quota for
    */
-  private async handleQuota(message: Message, userId: string): Promise<void> {
+  private async handleQuota(
+    interaction: ChatInputCommandInteraction,
+    userId: string,
+  ): Promise<void> {
     this.logger.info({ userId }, "Quota command");
 
     const rateLimitResult = await this.rateLimiter.getState(userId);
     const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
     const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
 
+    let content: string;
     if (rateLimitResult.remainingTokens >= this.config.DOWNLOADS_PER_HR) {
-      await message.author.send(
-        `You have **${rateLimitResult.remainingTokens}** download${s} available.`,
-      );
+      content = `You have **${rateLimitResult.remainingTokens}** download${s} available.`;
     } else if (rateLimitResult.remainingTokens === 0) {
-      await message.author.send(
-        `You have no downloads available.\nYou'll get another download <t:${resetTimestamp}:R>.`,
-      );
+      content = `You have no downloads available.\nYou'll get another download <t:${resetTimestamp}:R>.`;
     } else {
-      await message.author.send(
+      content =
         `You have **${rateLimitResult.remainingTokens}** download${s} available.\n` +
-          `You'll get another download <t:${resetTimestamp}:R>.`,
-      );
+        `You'll get another download <t:${resetTimestamp}:R>.`;
     }
+
+    await interaction.reply({ content, ephemeral: true });
   }
 
   /**
    * Handle the help command to display available commands.
+   *
+   * @param interaction - The slash command interaction
    */
-  private async handleHelp(message: Message): Promise<void> {
-    await message.author.send(
-      "**WoobieBot Commands**\n\n" +
-        "`search <term>` - Search for files by name or content\n" +
-        "`get <id>` - Get a download link for a file\n" +
-        "`quota` - Check your download quota and reset time\n" +
-        "`help` - Show this help message",
-    );
+  private async handleHelp(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.reply({
+      content:
+        "**WoobieBot Commands**\n\n" +
+        "`/search <term>` - Search for files by name or content\n" +
+        "`/get <id>` - Get a download link for a file\n" +
+        "`/quota` - Check your download quota and reset time\n" +
+        "`/help` - Show this help message",
+      ephemeral: true,
+    });
   }
 
   /**
    * Start the Discord bot.
+   * Deploys slash commands and logs in to Discord.
    */
   async start(): Promise<void> {
     try {
+      await deployCommands(
+        this.config.DISCORD_TOKEN,
+        this.config.DISCORD_CLIENT_ID,
+        this.config.DISCORD_GUILD_ID,
+        this.logger,
+      );
+
       await this.client.login(this.config.DISCORD_TOKEN);
       this.logger.info("Bot started");
     } catch (err) {
