@@ -189,7 +189,7 @@ export class Bot {
    */
   private async handleHelp(message: Message): Promise<void> {
     await message.author.send(
-      "**Woobiebot Commands**\n\n" +
+      "**WoobieBot Commands**\n\n" +
         "`search <term>` - Search for files by name or content\n" +
         "`get <id>` - Get a download link for a file\n" +
         "`quota` - Check your download quota and reset time\n" +

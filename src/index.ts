@@ -11,7 +11,7 @@ import { WebServer } from "./webServer.js";
  * Initialize and start all services.
  */
 async function main() {
-  logger.info("Starting Woobiebot...");
+  logger.info("Starting WoobieBot...");
 
   // Initialize file indexer
   const indexer = new FileIndexer(config.FILES_DIRECTORY, config.FILE_EXTENSIONS);
@@ -51,7 +51,7 @@ async function main() {
 
   await bot.start();
 
-  logger.info("Woobiebot started successfully");
+  logger.info("WoobieBot started successfully");
 
   // Handle graceful shutdown
   const shutdown = async (signal: string) => {

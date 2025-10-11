@@ -1,6 +1,6 @@
-# Woobiebot
+# WoobieBot
 
-Woobiebot is a Discord bot that indexes files from a directory, allows users to search for them via Discord commands, and serves files through a web server with proof-of-work CAPTCHA protection and rate limiting. Files are served through signed, expiring URLs to prevent unauthorized access.
+WoobieBot is a Discord bot that indexes files from a directory, allows users to search for them via Discord commands, and serves files through a web server with proof-of-work CAPTCHA protection and rate limiting. Files are served through signed, expiring URLs to prevent unauthorized access.
 
 ## Usage (Docker)
 
