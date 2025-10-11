@@ -47,7 +47,11 @@ describe("WebServer", () => {
       expiresMs: mockConfig.URL_EXPIRY_SEC * 1000,
     });
 
-    rateLimiter = new RateLimiter(mockConfig.DOWNLOADS_PER_HR, 3600, mockConfig.RATE_LIMIT_STORAGE_DIR);
+    rateLimiter = new RateLimiter(
+      mockConfig.DOWNLOADS_PER_HR,
+      3600,
+      mockConfig.RATE_LIMIT_STORAGE_DIR,
+    );
 
     indexer = new FileIndexer(tempDir, [".txt"]);
     await indexer.start();

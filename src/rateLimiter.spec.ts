@@ -236,12 +236,32 @@ describe("RateLimiter", () => {
     const file1Path = path.join(testStorageDir, "user1.json");
     const file2Path = path.join(testStorageDir, "user2.json");
 
-    expect(await fs.access(file1Path).then(() => true, () => false)).toBe(true);
-    expect(await fs.access(file2Path).then(() => true, () => false)).toBe(true);
+    expect(
+      await fs.access(file1Path).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true);
+    expect(
+      await fs.access(file2Path).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(true);
 
     await limiter.clear();
 
-    expect(await fs.access(file1Path).then(() => true, () => false)).toBe(false);
-    expect(await fs.access(file2Path).then(() => true, () => false)).toBe(false);
+    expect(
+      await fs.access(file1Path).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
+    expect(
+      await fs.access(file2Path).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
   });
 });

@@ -32,10 +32,8 @@ export class RateLimiter {
    * Refill rate in tokens per second.
    */
   private readonly tokensPerSec: number;
-  private readonly users: Map<
-    string,
-    { userId: string; tokens: number; lastRefill: number }
-  > = new Map();
+  private readonly users: Map<string, { userId: string; tokens: number; lastRefill: number }> =
+    new Map();
   private readonly storageDir: string;
 
   /**
@@ -59,7 +57,9 @@ export class RateLimiter {
   /**
    * Load rate limit data for a user from disk.
    */
-  private async loadUserData(userId: string): Promise<{ userId: string; tokens: number; lastRefill: number } | null> {
+  private async loadUserData(
+    userId: string,
+  ): Promise<{ userId: string; tokens: number; lastRefill: number } | null> {
     try {
       const filePath = this.getUserFilePath(userId);
       const data = await fs.readFile(filePath, "utf-8");
@@ -67,7 +67,10 @@ export class RateLimiter {
       const validated = rateLimitDataSchema.safeParse(parsed);
 
       if (!validated.success) {
-        logger.warn({ userId, error: validated.error }, "Corrupt rate limit data, treating as empty");
+        logger.warn(
+          { userId, error: validated.error },
+          "Corrupt rate limit data, treating as empty",
+        );
         return null;
       }
 
@@ -84,7 +87,11 @@ export class RateLimiter {
   /**
    * Save rate limit data for a user to disk.
    */
-  private async saveUserData(userLimit: { userId: string; tokens: number; lastRefill: number }): Promise<void> {
+  private async saveUserData(userLimit: {
+    userId: string;
+    tokens: number;
+    lastRefill: number;
+  }): Promise<void> {
     try {
       await fs.mkdir(this.storageDir, { recursive: true });
       const filePath = this.getUserFilePath(userLimit.userId);
