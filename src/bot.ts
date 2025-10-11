@@ -81,6 +81,8 @@ export class Bot {
     } else if (content.startsWith("get ")) {
       const fileId = content.substring(4).trim();
       await this.handleGet(message, userId, fileId);
+    } else if (content === "quota") {
+      await this.handleQuota(message, userId);
     } else if (content === "help") {
       await this.handleHelp(message);
     } else {
@@ -156,6 +158,32 @@ export class Bot {
   }
 
   /**
+   * Handle the quota command to display current quota status.
+   */
+  private async handleQuota(message: Message, userId: string): Promise<void> {
+    this.logger.info({ userId }, "Quota command");
+
+    const rateLimitResult = await this.rateLimiter.getState(userId);
+    const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
+    const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
+
+    if (rateLimitResult.remainingTokens >= this.config.DOWNLOADS_PER_HR) {
+      await message.author.send(
+        `You have **${rateLimitResult.remainingTokens}** download${s} available.`,
+      );
+    } else if (rateLimitResult.remainingTokens === 0) {
+      await message.author.send(
+        `You have no downloads available.\nYou'll get another download <t:${resetTimestamp}:R>.`,
+      );
+    } else {
+      await message.author.send(
+        `You have **${rateLimitResult.remainingTokens}** download${s} available.\n` +
+          `You'll get another download <t:${resetTimestamp}:R>.`,
+      );
+    }
+  }
+
+  /**
    * Handle the help command to display available commands.
    */
   private async handleHelp(message: Message): Promise<void> {
@@ -163,6 +191,7 @@ export class Bot {
       "**Woobiebot Commands**\n\n" +
         "`search <term>` - Search for files by name or content\n" +
         "`get <id>` - Get a download link for a file\n" +
+        "`quota` - Check your download quota and reset time\n" +
         "`help` - Show this help message",
     );
   }
