@@ -48,10 +48,14 @@ export class Bot {
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isChatInputCommand()) {
-        return;
+      try {
+        if (!interaction.isChatInputCommand()) {
+          return;
+        }
+        await this.handleCommand(interaction);
+      } catch (error) {
+        this.logger.error({ error }, "Uncaught error in interaction handler");
       }
-      await this.handleCommand(interaction);
     });
   }
 
@@ -113,12 +117,13 @@ export class Bot {
   ): Promise<void> {
     this.logger.info({ userId: interaction.user.id, query }, "Search command");
 
+    await interaction.deferReply({ ephemeral: true });
+
     const results = this.indexer.search(query);
 
     if (results.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `No files found matching "${query}".`,
-        ephemeral: true,
       });
       return;
     }
@@ -132,9 +137,8 @@ export class Bot {
     const more =
       results.length > maxResults ? `\n\n...and ${results.length - maxResults} more` : "";
 
-    await interaction.reply({
+    await interaction.editReply({
       content: `Found ${results.length} file(s) matching "${query}":\n\n${resultList}${more}\n\nUse \`/get <id>\` to download a file.`,
-      ephemeral: true,
     });
   }
 
