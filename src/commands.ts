@@ -7,16 +7,12 @@ import { SlashCommandBuilder } from "discord.js";
 export const commands = [
   new SlashCommandBuilder()
     .setName("search")
-    .setDescription("Search for files by name or content")
+    .setDescription("Search for files in the database")
     .addStringOption((option) =>
-      option.setName("query").setDescription("Search term to find files").setRequired(true),
-    ),
-
-  new SlashCommandBuilder()
-    .setName("get")
-    .setDescription("Get a download link for a file")
-    .addStringOption((option) =>
-      option.setName("fileid").setDescription("ID of the file to download").setRequired(true),
+      option
+        .setName("query")
+        .setDescription("The search term to use to find files")
+        .setRequired(true),
     ),
 
   new SlashCommandBuilder()

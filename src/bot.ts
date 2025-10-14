@@ -2,6 +2,7 @@ import { type ChatInputCommandInteraction, Client, Events, GatewayIntentBits } f
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
 import { deployCommands } from "./deployCommands.js";
+import { formatSearchResults } from "./format.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
@@ -67,40 +68,25 @@ export class Bot {
   private async handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
     const userId = interaction.user.id;
 
-    try {
-      switch (interaction.commandName) {
-        case "search": {
-          const query = interaction.options.getString("query", true);
-          await this.handleSearch(interaction, query);
-          break;
-        }
-        case "get": {
-          const fileId = interaction.options.getString("fileid", true);
-          await this.handleGet(interaction, userId, fileId);
-          break;
-        }
-        case "quota": {
-          await this.handleQuota(interaction, userId);
-          break;
-        }
-        case "help": {
-          await this.handleHelp(interaction);
-          break;
-        }
-        default: {
-          await interaction.reply({
-            content: "Unknown command. Use `/help` to see available commands.",
-            ephemeral: true,
-          });
-        }
+    switch (interaction.commandName) {
+      case "search": {
+        const query = interaction.options.getString("query", true);
+        await this.handleSearch(interaction, query);
+        break;
       }
-    } catch (error) {
-      this.logger.error({ error, userId, command: interaction.commandName }, "Command error");
-      const content = "An error occurred while processing your command.";
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content, ephemeral: true });
-      } else {
-        await interaction.reply({ content, ephemeral: true });
+      case "quota": {
+        await this.handleQuota(interaction, userId);
+        break;
+      }
+      case "help": {
+        await this.handleHelp(interaction);
+        break;
+      }
+      default: {
+        await interaction.reply({
+          content: "Unknown command. Use `/help` to see available commands.",
+          ephemeral: true,
+        });
       }
     }
   }
@@ -115,7 +101,8 @@ export class Bot {
     interaction: ChatInputCommandInteraction,
     query: string,
   ): Promise<void> {
-    this.logger.info({ userId: interaction.user.id, query }, "Search command");
+    const userId = interaction.user.id;
+    this.logger.info({ userId, query }, "Search command");
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -128,63 +115,25 @@ export class Bot {
       return;
     }
 
-    const maxResults = 10;
-    const displayed = results.slice(0, maxResults);
-    const resultList = displayed
-      .map((result) => `• \`${result.file.id}\` - ${result.file.name}`)
-      .join("\n");
-
-    const more =
-      results.length > maxResults ? `\n\n...and ${results.length - maxResults} more` : "";
-
-    await interaction.editReply({
-      content: `Found ${results.length} file(s) matching "${query}":\n\n${resultList}${more}\n\nUse \`/get <id>\` to download a file.`,
-    });
-  }
-
-  /**
-   * Handle the get command to generate a download link for a file.
-   *
-   * @param interaction - The slash command interaction
-   * @param userId - ID of the user requesting the file
-   * @param fileId - ID of the file to download
-   */
-  private async handleGet(
-    interaction: ChatInputCommandInteraction,
-    userId: string,
-    fileId: string,
-  ): Promise<void> {
-    this.logger.info({ userId, fileId }, "Get command");
-
-    const file = this.indexer.getById(fileId);
-    if (!file) {
-      await interaction.reply({
-        content: `File with ID \`${fileId}\` not found.`,
-        ephemeral: true,
-      });
-      return;
-    }
-
     const rateLimitResult = await this.rateLimiter.getState(userId);
     if (!rateLimitResult.allowed) {
       const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
-      await interaction.reply({
-        content: `Sorry, you're out of downloads. Your quota will reset <t:${resetTimestamp}:R>.`,
-        ephemeral: true,
+      await interaction.editReply({
+        content: `Sorry, you're out of downloads for now. Your quota will reset <t:${resetTimestamp}:R>.`,
       });
       return;
     }
 
-    const downloadUrl = this.webServer.generateDownloadUrl(userId, fileId);
-    const expiryTimestamp = Math.floor((Date.now() + this.config.URL_EXPIRY_SEC * 1000) / 1000);
-    const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
-    await interaction.reply({
-      content:
-        `[${file.name}](${downloadUrl})\n` +
-        `This link will expire <t:${expiryTimestamp}:R>. ` +
-        `You have ${rateLimitResult.remainingTokens} download${s} remaining.`,
-      ephemeral: true,
+    const content = formatSearchResults({
+      query,
+      results,
+      userId,
+      rateLimitResult,
+      urlExpiryMs: this.config.URL_EXPIRY_SEC * 1000,
+      generateDownloadUrl: (uid, fid) => this.webServer.generateDownloadUrl(uid, fid),
     });
+
+    await interaction.editReply({ content });
   }
 
   /**
@@ -226,8 +175,7 @@ export class Bot {
     await interaction.reply({
       content:
         "**WoobieBot Commands**\n\n" +
-        "`/search <term>` - Search for files by name or content\n" +
-        "`/get <id>` - Get a download link for a file\n" +
+        "`/search <term>` - Search for files and get download links\n" +
         "`/quota` - Check your download quota and reset time\n" +
         "`/help` - Show this help message",
       ephemeral: true,
