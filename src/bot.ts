@@ -66,25 +66,15 @@ export class Bot {
    * @param interaction - The slash command interaction to handle
    */
   private async handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-    const userId = interaction.user.id;
-
     switch (interaction.commandName) {
       case "search": {
         const query = interaction.options.getString("query", true);
         await this.handleSearch(interaction, query);
         break;
       }
-      case "quota": {
-        await this.handleQuota(interaction, userId);
-        break;
-      }
-      case "help": {
-        await this.handleHelp(interaction);
-        break;
-      }
       default: {
         await interaction.reply({
-          content: "Unknown command. Use `/help` to see available commands.",
+          content: "Unknown command.",
           ephemeral: true,
         });
       }
@@ -136,51 +126,6 @@ export class Bot {
     await interaction.editReply({ content });
   }
 
-  /**
-   * Handle the quota command to display current quota status.
-   *
-   * @param interaction - The slash command interaction
-   * @param userId - ID of the user to check quota for
-   */
-  private async handleQuota(
-    interaction: ChatInputCommandInteraction,
-    userId: string,
-  ): Promise<void> {
-    this.logger.info({ userId }, "Quota command");
-
-    const rateLimitResult = await this.rateLimiter.getState(userId);
-    const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
-    const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
-
-    let content: string;
-    if (rateLimitResult.remainingTokens >= this.config.DOWNLOADS_PER_HR) {
-      content = `You have **${rateLimitResult.remainingTokens}** download${s} available.`;
-    } else if (rateLimitResult.remainingTokens === 0) {
-      content = `You have no downloads available.\nYou'll get another download <t:${resetTimestamp}:R>.`;
-    } else {
-      content =
-        `You have **${rateLimitResult.remainingTokens}** download${s} available.\n` +
-        `You'll get another download <t:${resetTimestamp}:R>.`;
-    }
-
-    await interaction.reply({ content, ephemeral: true });
-  }
-
-  /**
-   * Handle the help command to display available commands.
-   *
-   * @param interaction - The slash command interaction
-   */
-  private async handleHelp(interaction: ChatInputCommandInteraction): Promise<void> {
-    await interaction.reply({
-      content:
-        "**WoobieBot Commands**\n\n" +
-        "`/search <term>` - Search for files and get download links\n" +
-        "`/quota` - Check your download quota and reset time\n" +
-        "`/help` - Show this help message",
-      ephemeral: true,
-    });
-  }
 
   /**
    * Start the Discord bot.

@@ -7,17 +7,8 @@ import { SlashCommandBuilder } from "discord.js";
 export const commands = [
   new SlashCommandBuilder()
     .setName("search")
-    .setDescription("Search for files in the database")
+    .setDescription("Search for files and get download links")
     .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The search term to use to find files")
-        .setRequired(true),
+      option.setName("query").setDescription("Search term to find files").setRequired(true),
     ),
-
-  new SlashCommandBuilder()
-    .setName("quota")
-    .setDescription("Check your download quota and reset time"),
-
-  new SlashCommandBuilder().setName("help").setDescription("Show available commands and usage"),
 ];
