@@ -126,7 +126,6 @@ export class Bot {
     await interaction.editReply({ content });
   }
 
-
   /**
    * Start the Discord bot.
    * Deploys slash commands and logs in to Discord.
