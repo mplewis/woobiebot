@@ -11,7 +11,7 @@ export interface FormatSearchResultsOptions {
   rateLimitResult: RateLimitResult;
   urlExpiryMs: number;
   generateDownloadUrl: (userId: string, fileId: string) => string;
-  maxResults?: number;
+  maxResults: number;
 }
 
 /**
@@ -21,8 +21,8 @@ export interface FormatSearchResultsOptions {
  * @returns Formatted message string ready to send to Discord
  */
 export function formatSearchResults(options: FormatSearchResultsOptions): string {
-  const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl } = options;
-  const maxResults = options.maxResults ?? 10;
+  const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl, maxResults } =
+    options;
 
   const displayed = results.slice(0, maxResults);
 

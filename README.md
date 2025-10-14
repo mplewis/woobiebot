@@ -76,4 +76,5 @@ pnpm start
 | `CAPTCHA_DIFFICULTY`      | number | `4`                           |          | CAPTCHA difficulty level                               |
 | `DOWNLOADS_PER_HR`        | number | `10`                          |          | Maximum downloads per user per hour                    |
 | `RATE_LIMIT_STORAGE_DIR`  | string | `tmp/rate_limit`              |          | Directory to store rate limit state                    |
+| `MAX_RESULTS`             | number | `5`                           |          | Maximum number of search results to display            |
 | `LOG_LEVEL`               | string | `info`                        |          | Logging level (fatal, error, warn, info, debug, trace) |

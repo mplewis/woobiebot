@@ -35,6 +35,7 @@ beforeEach(async () => {
     CAPTCHA_DIFFICULTY: 4,
     DOWNLOADS_PER_HR: 10,
     RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-webserver",
+    MAX_RESULTS: 5,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
   };

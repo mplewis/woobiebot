@@ -51,6 +51,7 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
+      maxResults: 10,
     });
 
     expect(result).toMatchInlineSnapshot(`
@@ -82,6 +83,7 @@ describe("formatSearchResults", () => {
       rateLimitResult: singleTokenResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
+      maxResults: 10,
     });
 
     expect(result).toMatchInlineSnapshot(`
@@ -121,6 +123,7 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
+      maxResults: 10,
     });
 
     expect(result).toMatchInlineSnapshot(`
@@ -169,6 +172,7 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
+      maxResults: 10,
     });
 
     expect(result).toMatchInlineSnapshot(`
@@ -250,6 +254,7 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
+      maxResults: 10,
     });
 
     expect(result).toMatchInlineSnapshot(`

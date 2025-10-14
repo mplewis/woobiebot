@@ -121,6 +121,7 @@ export class Bot {
       rateLimitResult,
       urlExpiryMs: this.config.URL_EXPIRY_SEC * 1000,
       generateDownloadUrl: (uid, fid) => this.webServer.generateDownloadUrl(uid, fid),
+      maxResults: this.config.MAX_RESULTS,
     });
 
     await interaction.editReply({ content });
