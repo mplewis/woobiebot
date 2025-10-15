@@ -1,6 +1,6 @@
 {
   "name": "woobiebot",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Discord bot for file serving with search and rate limiting",
   "type": "module",
   "main": "./dist/index.js",
