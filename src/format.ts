@@ -9,6 +9,16 @@ import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
 /**
+ * Maximum length for a Discord message in characters.
+ */
+const DISCORD_MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * Safety factor for message length to leave room for formatting and edge cases.
+ */
+const MESSAGE_LENGTH_SAFETY_FACTOR = 0.95;
+
+/**
  * Options for formatting search results into a Discord message.
  */
 export interface FormatSearchResultsOptions {
@@ -24,8 +34,6 @@ export interface FormatSearchResultsOptions {
   urlExpiryMs: number;
   /** Function to generate download URLs */
   generateDownloadUrl: (userId: string, fileId: string) => string;
-  /** Maximum number of results to display with URLs */
-  maxResults: number;
 }
 
 /**
@@ -45,18 +53,10 @@ export interface FormattedSearchResults {
  * @returns Formatted message object with content and optional button components
  */
 export function formatSearchResults(options: FormatSearchResultsOptions): FormattedSearchResults {
-  const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl, maxResults } =
-    options;
+  const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl } = options;
 
+  const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * MESSAGE_LENGTH_SAFETY_FACTOR);
   const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
-  const displayed = sortedResults.slice(0, maxResults);
-
-  const resultLinks = displayed.map((result) => {
-    const downloadUrl = generateDownloadUrl(userId, result.file.id);
-    return `- [${result.file.path}](${downloadUrl})`;
-  });
-
-  const more = results.length > maxResults ? `\n...and ${results.length - maxResults} more` : "";
 
   const expiryTimestamp = Math.floor((Date.now() + urlExpiryMs) / 1000);
   const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
@@ -66,10 +66,35 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
   const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
   const quota = `You have ${rateLimitResult.remainingTokens} download${s} remaining, refreshing <t:${resetTimestamp}:R>.`;
 
-  const content = `${found}:\n\n${resultLinks.join("\n")}${more}\n\n${expiry}${quota}`;
+  const header = `${found}:\n\n`;
+  const footer = `\n\n${expiry}${quota}`;
+
+  const resultLinks: string[] = [];
+  let includedCount = 0;
+
+  for (const result of sortedResults) {
+    const downloadUrl = generateDownloadUrl(userId, result.file.id);
+    const link = `- [${result.file.path}](${downloadUrl})`;
+
+    const remaining = results.length - includedCount;
+    const moreSuffix = `\n...and ${remaining} more`;
+    const linksContent = resultLinks.length > 0 ? `${resultLinks.join("\n")}\n${link}` : link;
+    const potentialContent = `${header}${linksContent}${moreSuffix}${footer}`;
+
+    if (potentialContent.length > maxLength) {
+      break;
+    }
+
+    resultLinks.push(link);
+    includedCount++;
+  }
+
+  const more =
+    includedCount < results.length ? `\n...and ${results.length - includedCount} more` : "";
+  const content = `${header}${resultLinks.join("\n")}${more}${footer}`;
 
   const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
-  if (results.length > maxResults) {
+  if (includedCount < results.length) {
     const button = new ButtonBuilder()
       .setCustomId(`list_all:${query}`)
       .setLabel("List all search results")

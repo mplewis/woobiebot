@@ -30,7 +30,6 @@ beforeEach(() => {
     CAPTCHA_DIFFICULTY: 2,
     DOWNLOADS_PER_HR: 10,
     RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-bot",
-    MAX_RESULTS: 5,
     SEARCH_MIN_CHARS: 3,
     SEARCH_THRESHOLD: 0.6,
     LOG_LEVEL: "fatal" as const,

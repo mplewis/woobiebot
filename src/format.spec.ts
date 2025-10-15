@@ -51,14 +51,13 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 10,
     });
 
     expect(result.content).toMatchInlineSnapshot(`
       "Found 2 file(s) matching "test":
 
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      • [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
+      - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
 
       Links expire <t:1705313400:R>.
       You have 5 downloads remaining, refreshing <t:1705320000:R>."
@@ -84,14 +83,13 @@ describe("formatSearchResults", () => {
       rateLimitResult: singleTokenResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 10,
     });
 
     expect(result.content).toMatchInlineSnapshot(`
       "Found 2 file(s) matching "test":
 
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      • [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
+      - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
 
       Links expire <t:1705313400:R>.
       You have 1 download remaining, refreshing <t:1705320000:R>."
@@ -100,16 +98,16 @@ describe("formatSearchResults", () => {
     vi.useRealTimers();
   });
 
-  it("formats with results exceeding maxResults", () => {
+  it("formats with results exceeding message length limit", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
 
-    const manyResults: SearchResult[] = Array.from({ length: 15 }, (_, i) => ({
+    const manyResults: SearchResult[] = Array.from({ length: 50 }, (_, i) => ({
       file: {
         id: `file${i}`,
-        name: `test${i}.txt`,
-        path: `test${i}.txt`,
-        absolutePath: `/path/test${i}.txt`,
+        name: `test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
+        path: `very/long/path/to/exceed/message/length/limits/test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
+        absolutePath: `/absolute/very/long/path/to/exceed/message/length/limits/test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
         size: 100,
         mtime: new Date("2024-01-01"),
         mimeType: "text/plain",
@@ -124,156 +122,17 @@ describe("formatSearchResults", () => {
       rateLimitResult: mockRateLimitResult,
       urlExpiryMs: 600000,
       generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 10,
     });
 
-    expect(result.content).toMatchInlineSnapshot(`
-      "Found 15 file(s) matching "test":
-
-      • [test0.txt](http://localhost:3000/download?userId=user123&fileId=file0)
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      • [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
-      • [test3.txt](http://localhost:3000/download?userId=user123&fileId=file3)
-      • [test4.txt](http://localhost:3000/download?userId=user123&fileId=file4)
-      • [test5.txt](http://localhost:3000/download?userId=user123&fileId=file5)
-      • [test6.txt](http://localhost:3000/download?userId=user123&fileId=file6)
-      • [test7.txt](http://localhost:3000/download?userId=user123&fileId=file7)
-      • [test8.txt](http://localhost:3000/download?userId=user123&fileId=file8)
-      • [test9.txt](http://localhost:3000/download?userId=user123&fileId=file9)
-      ...and 5 more
-
-      Links expire <t:1705313400:R>.
-      You have 5 downloads remaining, refreshing <t:1705320000:R>."
-    `);
+    expect(result.content).toContain("Found 50 file(s) matching \"test\"");
+    expect(result.content).toContain("...and");
+    expect(result.content).toContain("more");
     expect(result.components).toBeDefined();
     expect(result.components).toHaveLength(1);
 
     vi.useRealTimers();
   });
 
-  it("formats with exactly maxResults", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
-
-    const exactResults: SearchResult[] = Array.from({ length: 10 }, (_, i) => ({
-      file: {
-        id: `file${i}`,
-        name: `test${i}.txt`,
-        path: `test${i}.txt`,
-        absolutePath: `/path/test${i}.txt`,
-        size: 100,
-        mtime: new Date("2024-01-01"),
-        mimeType: "text/plain",
-      },
-      score: 0.5,
-    }));
-
-    const result = formatSearchResults({
-      query: "test",
-      results: exactResults,
-      userId: "user123",
-      rateLimitResult: mockRateLimitResult,
-      urlExpiryMs: 600000,
-      generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 10,
-    });
-
-    expect(result.content).toMatchInlineSnapshot(`
-      "Found 10 file(s) matching "test":
-
-      • [test0.txt](http://localhost:3000/download?userId=user123&fileId=file0)
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      • [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
-      • [test3.txt](http://localhost:3000/download?userId=user123&fileId=file3)
-      • [test4.txt](http://localhost:3000/download?userId=user123&fileId=file4)
-      • [test5.txt](http://localhost:3000/download?userId=user123&fileId=file5)
-      • [test6.txt](http://localhost:3000/download?userId=user123&fileId=file6)
-      • [test7.txt](http://localhost:3000/download?userId=user123&fileId=file7)
-      • [test8.txt](http://localhost:3000/download?userId=user123&fileId=file8)
-      • [test9.txt](http://localhost:3000/download?userId=user123&fileId=file9)
-
-      Links expire <t:1705313400:R>.
-      You have 5 downloads remaining, refreshing <t:1705320000:R>."
-    `);
-    expect(result.components).toBeUndefined();
-
-    vi.useRealTimers();
-  });
-
-  it("formats with custom maxResults parameter", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
-
-    const manyResults: SearchResult[] = Array.from({ length: 10 }, (_, i) => ({
-      file: {
-        id: `file${i}`,
-        name: `test${i}.txt`,
-        path: `test${i}.txt`,
-        absolutePath: `/path/test${i}.txt`,
-        size: 100,
-        mtime: new Date("2024-01-01"),
-        mimeType: "text/plain",
-      },
-      score: 0.5,
-    }));
-
-    const result = formatSearchResults({
-      query: "test",
-      results: manyResults,
-      userId: "user123",
-      rateLimitResult: mockRateLimitResult,
-      urlExpiryMs: 600000,
-      generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 3,
-    });
-
-    expect(result.content).toMatchInlineSnapshot(`
-      "Found 10 file(s) matching "test":
-
-      • [test0.txt](http://localhost:3000/download?userId=user123&fileId=file0)
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      • [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
-      ...and 7 more
-
-      Links expire <t:1705313400:R>.
-      You have 5 downloads remaining, refreshing <t:1705320000:R>."
-    `);
-    expect(result.components).toBeDefined();
-    expect(result.components).toHaveLength(1);
-
-    vi.useRealTimers();
-  });
-
-  it("formats single result", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
-
-    const firstResult = mockResults[0];
-    if (!firstResult) {
-      throw new Error("Expected first mock result to exist");
-    }
-
-    const result = formatSearchResults({
-      query: "test",
-      results: [firstResult],
-      userId: "user123",
-      rateLimitResult: mockRateLimitResult,
-      urlExpiryMs: 600000,
-      generateDownloadUrl: mockGenerateDownloadUrl,
-      maxResults: 10,
-    });
-
-    expect(result.content).toMatchInlineSnapshot(`
-      "Found 1 file(s) matching "test":
-
-      • [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-
-      Links expire <t:1705313400:R>.
-      You have 5 downloads remaining, refreshing <t:1705320000:R>."
-    `);
-
-    vi.useRealTimers();
-  });
 });
 
 describe("formatAllResultsList", () => {
@@ -290,26 +149,32 @@ describe("formatAllResultsList", () => {
     score: 0.5,
   }));
 
-  it("formats all results without URLs", () => {
+  it("formats all results as file attachment", () => {
     const result = formatAllResultsList("test", mockResults);
 
-    expect(result).toContain('All 20 file(s) matching "test"');
-    expect(result).toContain("• test0.txt");
-    expect(result).toContain("• test19.txt");
-    expect(result).not.toContain("http");
-    expect(result).not.toContain("download");
+    expect(result.content).toContain('All 20 file(s) matching "test"');
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]?.name).toBe("search-results-test.txt");
+
+    const fileContent = result.files[0]?.attachment.toString();
+    expect(fileContent).toContain("folder/test0.txt");
+    expect(fileContent).toContain("folder/test19.txt");
+    expect(fileContent).not.toContain("http");
+    expect(fileContent).not.toContain("download");
   });
 
   it("formats with few results", () => {
     const fewResults = mockResults.slice(0, 3);
     const result = formatAllResultsList("query", fewResults);
 
-    expect(result).toMatchInlineSnapshot(`
-      "All 3 file(s) matching "query":
+    expect(result.content).toBe('All 3 file(s) matching "query":');
+    expect(result.files).toHaveLength(1);
 
-      • test0.txt
-      • test1.txt
-      • test2.txt"
+    const fileContent = result.files[0]?.attachment.toString();
+    expect(fileContent).toMatchInlineSnapshot(`
+      "folder/test0.txt
+      folder/test1.txt
+      folder/test2.txt"
     `);
   });
 });

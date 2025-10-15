@@ -4,6 +4,7 @@ import {
   Client,
   Events,
   GatewayIntentBits,
+  MessageFlags,
 } from "discord.js";
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
@@ -90,7 +91,7 @@ export class Bot {
       default: {
         await interaction.reply({
           content: "Unknown command.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     }
@@ -109,7 +110,7 @@ export class Bot {
     const userId = interaction.user.id;
     this.logger.info({ userId, query }, "Search command");
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (query.length < this.config.SEARCH_MIN_CHARS) {
       const s = this.config.SEARCH_MIN_CHARS === 1 ? "" : "s";
@@ -144,7 +145,6 @@ export class Bot {
       rateLimitResult,
       urlExpiryMs: this.config.URL_EXPIRY_SEC * 1000,
       generateDownloadUrl: (uid, fid) => this.webServer.generateDownloadUrl(uid, fid),
-      maxResults: this.config.MAX_RESULTS,
     });
 
     await interaction.editReply(formatted);
@@ -162,7 +162,7 @@ export class Bot {
       const query = interaction.customId.slice("list_all:".length);
       this.logger.info({ userId, query }, "List all results button");
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const results = this.indexer.search(query);
 
@@ -179,7 +179,7 @@ export class Bot {
       this.logger.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
       await interaction.reply({
         content: "Unknown button interaction.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
