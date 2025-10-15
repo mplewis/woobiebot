@@ -124,7 +124,7 @@ describe("formatSearchResults", () => {
       generateDownloadUrl: mockGenerateDownloadUrl,
     });
 
-    expect(result.content).toContain("Found 50 file(s) matching \"test\"");
+    expect(result.content).toContain('Found 50 file(s) matching "test"');
     expect(result.content).toContain("...and");
     expect(result.content).toContain("more");
     expect(result.components).toBeDefined();
@@ -132,7 +132,6 @@ describe("formatSearchResults", () => {
 
     vi.useRealTimers();
   });
-
 });
 
 describe("formatAllResultsList", () => {
