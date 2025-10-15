@@ -14,7 +14,11 @@ async function main() {
   logger.info("Starting WoobieBot...");
 
   // Initialize file indexer
-  const indexer = new FileIndexer(config.FILES_DIRECTORY, config.FILE_EXTENSIONS);
+  const indexer = new FileIndexer({
+    directory: config.FILES_DIRECTORY,
+    extensions: config.FILE_EXTENSIONS,
+    threshold: config.SEARCH_THRESHOLD,
+  });
 
   await indexer.start();
 

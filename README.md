@@ -77,4 +77,6 @@ pnpm start
 | `DOWNLOADS_PER_HR`        | number | `10`                          |          | Maximum downloads per user per hour                    |
 | `RATE_LIMIT_STORAGE_DIR`  | string | `tmp/rate_limit`              |          | Directory to store rate limit state                    |
 | `MAX_RESULTS`             | number | `5`                           |          | Maximum number of search results to display            |
+| `SEARCH_MIN_CHARS`        | number | `3`                           |          | Minimum character length for search queries            |
+| `SEARCH_THRESHOLD`        | number | `0.6`                         |          | Fuzzy search threshold (0-1, higher = more fuzzy)      |
 | `LOG_LEVEL`               | string | `info`                        |          | Logging level (fatal, error, warn, info, debug, trace) |

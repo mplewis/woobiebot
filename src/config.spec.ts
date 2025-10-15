@@ -48,3 +48,49 @@ it("uses custom values when provided", async () => {
   expect(config.WEB_SERVER_PORT).toBe(5000);
   expect(config.DOWNLOADS_PER_HR).toBe(20);
 });
+
+it("uses default SEARCH_MIN_CHARS when not provided", async () => {
+  process.env["DISCORD_TOKEN"] = "test_token";
+  process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+
+  const { loadConfig } = await import("./config.js");
+  const config = loadConfig();
+
+  expect(config.SEARCH_MIN_CHARS).toBe(3);
+});
+
+it("uses custom SEARCH_MIN_CHARS when provided", async () => {
+  process.env["DISCORD_TOKEN"] = "test_token";
+  process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+  process.env["SEARCH_MIN_CHARS"] = "5";
+
+  const { loadConfig } = await import("./config.js");
+  const config = loadConfig();
+
+  expect(config.SEARCH_MIN_CHARS).toBe(5);
+});
+
+it("uses default SEARCH_THRESHOLD when not provided", async () => {
+  process.env["DISCORD_TOKEN"] = "test_token";
+  process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+
+  const { loadConfig } = await import("./config.js");
+  const config = loadConfig();
+
+  expect(config.SEARCH_THRESHOLD).toBe(0.6);
+});
+
+it("uses custom SEARCH_THRESHOLD when provided", async () => {
+  process.env["DISCORD_TOKEN"] = "test_token";
+  process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+  process.env["SEARCH_THRESHOLD"] = "0.8";
+
+  const { loadConfig } = await import("./config.js");
+  const config = loadConfig();
+
+  expect(config.SEARCH_THRESHOLD).toBe(0.8);
+});

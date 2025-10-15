@@ -1,5 +1,5 @@
 import { GatewayIntentBits } from "discord.js";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
@@ -31,11 +31,17 @@ beforeEach(() => {
     DOWNLOADS_PER_HR: 10,
     RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-bot",
     MAX_RESULTS: 5,
+    SEARCH_MIN_CHARS: 3,
+    SEARCH_THRESHOLD: 0.6,
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
   };
 
-  indexer = new FileIndexer(config.FILES_DIRECTORY, config.FILE_EXTENSIONS);
+  indexer = new FileIndexer({
+    directory: config.FILES_DIRECTORY,
+    extensions: config.FILE_EXTENSIONS,
+    threshold: config.SEARCH_THRESHOLD,
+  });
 
   rateLimiter = new RateLimiter(config.DOWNLOADS_PER_HR, 3600, config.RATE_LIMIT_STORAGE_DIR);
 
@@ -79,4 +85,87 @@ it("bot client has only Guilds intent", () => {
   const intents = client.options.intents;
   expect(intents).toBeDefined();
   expect(intents?.bitfield).toBe(GatewayIntentBits.Guilds);
+});
+
+describe("search interaction", () => {
+  /**
+   * Mock Discord interaction object for testing search commands
+   */
+  type MockInteraction = {
+    commandName: string;
+    user: { id: string };
+    options: {
+      getString: (name: string) => string | null;
+    };
+    deferReply: () => Promise<void>;
+    editReply: (options: { content: string }) => Promise<{ content: string }>;
+  };
+
+  /**
+   * Creates a mock Discord interaction with a search query and reply capture
+   */
+  const createMockInteraction = (
+    query: string,
+  ): MockInteraction & { getCapturedReply: () => string } => {
+    let capturedReply = "";
+    return {
+      commandName: "search",
+      user: { id: "test-user-123" },
+      options: {
+        getString: (name: string) => {
+          if (name === "query") {
+            return query;
+          }
+          return null;
+        },
+      },
+      deferReply: async () => {
+        /* intentionally empty */
+      },
+      editReply: async (options: { content: string }) => {
+        capturedReply = options.content;
+        return options;
+      },
+      getCapturedReply: () => capturedReply,
+    };
+  };
+
+  /**
+   * Invokes the bot's handleCommand method with a mock interaction
+   */
+  const callHandleCommand = async (botInstance: Bot, mockInteraction: MockInteraction) => {
+    const handleCommand = (
+      botInstance as unknown as { handleCommand: (interaction: unknown) => Promise<void> }
+    ).handleCommand;
+    await handleCommand.call(botInstance, mockInteraction);
+  };
+
+  beforeEach(async () => {
+    await indexer.start();
+  });
+
+  afterEach(async () => {
+    await indexer.stop();
+  });
+
+  it("rejects search queries shorter than SEARCH_MIN_CHARS", async () => {
+    const mockInteraction = createMockInteraction("ab");
+    await callHandleCommand(bot, mockInteraction);
+    expect(mockInteraction.getCapturedReply()).toBe("Search query must be at least 3 characters.");
+  });
+
+  it("shows singular 'character' when SEARCH_MIN_CHARS is 1", async () => {
+    config.SEARCH_MIN_CHARS = 1;
+    const botWithMinOne = new Bot({
+      config,
+      indexer,
+      rateLimiter,
+      webServer,
+      logger,
+    });
+
+    const mockInteraction = createMockInteraction("");
+    await callHandleCommand(botWithMinOne, mockInteraction);
+    expect(mockInteraction.getCapturedReply()).toBe("Search query must be at least 1 character.");
+  });
 });

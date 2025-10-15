@@ -7,11 +7,19 @@ import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
 
+/**
+ * Dependencies for the Bot.
+ */
 export interface BotDependencies {
+  /** Application configuration */
   config: Config;
+  /** File indexer for searching files */
   indexer: FileIndexer;
+  /** Rate limiter for download quotas */
   rateLimiter: RateLimiter;
+  /** Web server for serving files */
   webServer: WebServer;
+  /** Logger instance */
   logger: Logger;
 }
 
@@ -95,6 +103,14 @@ export class Bot {
     this.logger.info({ userId, query }, "Search command");
 
     await interaction.deferReply({ ephemeral: true });
+
+    if (query.length < this.config.SEARCH_MIN_CHARS) {
+      const s = this.config.SEARCH_MIN_CHARS === 1 ? "" : "s";
+      await interaction.editReply({
+        content: `Search query must be at least ${this.config.SEARCH_MIN_CHARS} character${s}.`,
+      });
+      return;
+    }
 
     const results = this.indexer.search(query);
 

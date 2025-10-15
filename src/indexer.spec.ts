@@ -17,7 +17,7 @@ it("builds index from directory on start", async () => {
   await writeFile(join(TEST_DIR, "file1.txt"), "content1");
   await writeFile(join(TEST_DIR, "file2.txt"), "content2");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const files = indexer.getAll();
@@ -30,7 +30,7 @@ it("builds index from directory on start", async () => {
 it("generates consistent IDs from paths", async () => {
   await writeFile(join(TEST_DIR, "test.txt"), "content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const files = indexer.getAll();
@@ -49,7 +49,7 @@ it("generates consistent IDs from paths", async () => {
 it("finds files by ID", async () => {
   await writeFile(join(TEST_DIR, "findme.txt"), "content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const files = indexer.getAll();
@@ -70,7 +70,7 @@ it("searches files by path (fuzzy)", async () => {
   await writeFile(join(TEST_DIR, "readme.txt"), "readme content");
   await writeFile(join(TEST_DIR, "notes.txt"), "notes content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".pdf", ".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".pdf", ".txt"] });
   await indexer.start();
 
   const results = indexer.search("readme");
@@ -85,7 +85,7 @@ it("filters by file extensions", async () => {
   await writeFile(join(TEST_DIR, "file.pdf"), "pdf content");
   await writeFile(join(TEST_DIR, "file.jpg"), "jpg content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt", ".pdf"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt", ".pdf"] });
   await indexer.start();
 
   const files = indexer.getAll();
@@ -96,7 +96,7 @@ it("filters by file extensions", async () => {
 });
 
 it.skip("automatically detects new files", async () => {
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   expect(indexer.getAll()).toHaveLength(0);
@@ -118,7 +118,7 @@ it.skip("automatically removes deleted files", async () => {
   const filePath = join(TEST_DIR, "deleteme.txt");
   await writeFile(filePath, "content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   expect(indexer.getAll()).toHaveLength(1);
@@ -138,7 +138,7 @@ it.skip("updates metadata on file changes", async () => {
   const filePath = join(TEST_DIR, "changeme.txt");
   await writeFile(filePath, "original");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const file1 = indexer.getAll()[0];
@@ -162,7 +162,7 @@ it("handles subdirectories", async () => {
   await writeFile(join(TEST_DIR, "root.txt"), "root");
   await writeFile(join(TEST_DIR, "subdir", "nested.txt"), "nested");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const files = indexer.getAll();
@@ -175,7 +175,7 @@ it("handles subdirectories", async () => {
 it("search returns empty array for empty query", async () => {
   await writeFile(join(TEST_DIR, "file.txt"), "content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const results = indexer.search("");
@@ -187,11 +187,26 @@ it("search returns empty array for empty query", async () => {
 it("search handles no results", async () => {
   await writeFile(join(TEST_DIR, "file.txt"), "content");
 
-  const indexer = new FileIndexer(TEST_DIR, [".txt"]);
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
   await indexer.start();
 
   const results = indexer.search("nonexistent-xyzabc");
   expect(results).toEqual([]);
+
+  await indexer.stop();
+});
+
+it("handles typos in search queries", async () => {
+  await writeFile(join(TEST_DIR, "cactus.txt"), "content");
+  await writeFile(join(TEST_DIR, "coconut.txt"), "content");
+  await writeFile(join(TEST_DIR, "carrot.txt"), "content");
+
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
+  await indexer.start();
+
+  const results = indexer.search("catcus");
+  expect(results.length).toBeGreaterThan(0);
+  expect(results[0]?.file.path).toBe("cactus.txt");
 
   await indexer.stop();
 });

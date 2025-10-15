@@ -24,6 +24,18 @@ export interface SearchResult {
 }
 
 /**
+ * Configuration options for the FileIndexer.
+ */
+export interface FileIndexerConfig {
+  /** Directory to index files from */
+  directory: string;
+  /** File extensions to include in the index */
+  extensions: string[];
+  /** Fuzzy search threshold (0-1, higher = more fuzzy) */
+  threshold?: number;
+}
+
+/**
  * Automatically index files from a directory with file watching and fuzzy search.
  * Maintain an in-memory index that stays synchronized with the filesystem.
  */
@@ -33,10 +45,12 @@ export class FileIndexer {
   private fuse: Fuse<FileMetadata> | null = null;
   private readonly directory: string;
   private readonly extensions: string[];
+  private readonly threshold: number;
 
-  constructor(directory: string, extensions: string[]) {
-    this.directory = directory;
-    this.extensions = extensions;
+  constructor(config: FileIndexerConfig) {
+    this.directory = config.directory;
+    this.extensions = config.extensions;
+    this.threshold = config.threshold ?? 0.6;
   }
 
   /**
@@ -194,7 +208,7 @@ export class FileIndexer {
   private _initializeSearch(): void {
     this.fuse = new Fuse(this.getAll(), {
       keys: ["path"],
-      threshold: 0.4,
+      threshold: this.threshold,
       includeScore: true,
     });
   }
