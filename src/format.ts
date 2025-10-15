@@ -57,12 +57,12 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
   const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl, maxResults } =
     options;
 
-  const sortedResults = [...results].sort((a, b) => a.file.name.localeCompare(b.file.name));
+  const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
   const displayed = sortedResults.slice(0, maxResults);
 
   const resultLinks = displayed.map((result) => {
     const downloadUrl = generateDownloadUrl(userId, result.file.id);
-    return `- [${result.file.name}](${downloadUrl})`;
+    return `- [${result.file.path}](${downloadUrl})`;
   });
 
   const more = results.length > maxResults ? `\n...and ${results.length - maxResults} more` : "";
@@ -102,13 +102,13 @@ export function formatAllResultsList(query: string, results: SearchResult[]): st
   const found = `All ${results.length} file(s) matching "${query}"`;
   const header = `${found}:\n\n`;
 
-  const sortedResults = [...results].sort((a, b) => a.file.name.localeCompare(b.file.name));
+  const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
 
   let content = header;
   let includedCount = 0;
 
   for (const result of sortedResults) {
-    const line = `- ${result.file.name}\n`;
+    const line = `- ${result.file.path}\n`;
     const remaining = results.length - includedCount;
     const truncationSuffix = `\n...and ${remaining} more`;
     const potentialLength = content.length + line.length + truncationSuffix.length;
