@@ -13,6 +13,11 @@ import type { RateLimitResult } from "./rateLimiter.js";
 const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 
 /**
+ * Safety factor for message length to leave room for formatting and edge cases.
+ */
+const MESSAGE_LENGTH_SAFETY_FACTOR = 0.95;
+
+/**
  * Options for formatting search results into a Discord message.
  */
 export interface FormatSearchResultsOptions {
@@ -92,7 +97,7 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
  * @returns Formatted message with all filenames
  */
 export function formatAllResultsList(query: string, results: SearchResult[]): string {
-  const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * 0.9);
+  const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * MESSAGE_LENGTH_SAFETY_FACTOR);
   const found = `All ${results.length} file(s) matching "${query}"`;
   const header = `${found}:\n\n`;
 
