@@ -152,7 +152,7 @@ export class Bot {
       await deployCommands(
         this.config.DISCORD_TOKEN,
         this.config.DISCORD_CLIENT_ID,
-        this.config.DISCORD_GUILD_ID,
+        this.config.DISCORD_GUILD_IDS,
         this.logger,
       );
 

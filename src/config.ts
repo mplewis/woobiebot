@@ -8,7 +8,17 @@ if (process.env["NODE_ENV"] !== "test") {
 const configSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, "Discord token is required"),
   DISCORD_CLIENT_ID: z.string().min(1, "Discord client ID is required"),
-  DISCORD_GUILD_ID: z.string().optional(),
+  DISCORD_GUILD_IDS: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(",")
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0)
+        : [],
+    ),
   FILES_DIRECTORY: z.string().default("./files"),
   FILE_EXTENSIONS: z
     .string()

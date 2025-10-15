@@ -18,7 +18,7 @@ beforeEach(() => {
   config = {
     DISCORD_TOKEN: "test-token",
     DISCORD_CLIENT_ID: "test-client-id",
-    DISCORD_GUILD_ID: undefined,
+    DISCORD_GUILD_IDS: [],
     FILES_DIRECTORY: "./test-files",
     FILE_EXTENSIONS: [".txt"],
     WEB_SERVER_PORT: 3000,

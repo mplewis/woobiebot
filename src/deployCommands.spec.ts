@@ -29,18 +29,31 @@ beforeEach(() => {
   mockPut.mockResolvedValue(undefined);
 });
 
-it("deploys guild commands when guildId is provided", async () => {
-  await deployCommands("test-token", "test-client-id", "test-guild-id", logger);
+it("deploys global commands and guild commands when guild IDs provided", async () => {
+  await deployCommands("test-token", "test-client-id", ["guild-1", "guild-2"], logger);
 
-  expect(mockPut).toHaveBeenCalledWith(
-    { clientId: "test-client-id", guildId: "test-guild-id", type: "guild" },
+  expect(mockPut).toHaveBeenCalledTimes(3);
+  expect(mockPut).toHaveBeenNthCalledWith(
+    1,
+    { clientId: "test-client-id", type: "global" },
+    expect.objectContaining({ body: expect.any(Array) }),
+  );
+  expect(mockPut).toHaveBeenNthCalledWith(
+    2,
+    { clientId: "test-client-id", guildId: "guild-1", type: "guild" },
+    expect.objectContaining({ body: expect.any(Array) }),
+  );
+  expect(mockPut).toHaveBeenNthCalledWith(
+    3,
+    { clientId: "test-client-id", guildId: "guild-2", type: "guild" },
     expect.objectContaining({ body: expect.any(Array) }),
   );
 });
 
-it("deploys global commands when guildId is not provided", async () => {
-  await deployCommands("test-token", "test-client-id", undefined, logger);
+it("deploys only global commands when no guild IDs provided", async () => {
+  await deployCommands("test-token", "test-client-id", [], logger);
 
+  expect(mockPut).toHaveBeenCalledTimes(1);
   expect(mockPut).toHaveBeenCalledWith(
     { clientId: "test-client-id", type: "global" },
     expect.objectContaining({ body: expect.any(Array) }),
@@ -50,7 +63,7 @@ it("deploys global commands when guildId is not provided", async () => {
 it("throws error when deployment fails", async () => {
   mockPut.mockRejectedValue(new Error("API error"));
 
-  await expect(
-    deployCommands("test-token", "test-client-id", "test-guild-id", logger),
-  ).rejects.toThrow("API error");
+  await expect(deployCommands("test-token", "test-client-id", [], logger)).rejects.toThrow(
+    "API error",
+  );
 });

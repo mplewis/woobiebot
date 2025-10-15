@@ -24,6 +24,7 @@ beforeEach(async () => {
   mockConfig = {
     DISCORD_TOKEN: "test_token",
     DISCORD_CLIENT_ID: "test_client_id",
+    DISCORD_GUILD_IDS: [],
     FILES_DIRECTORY: tempDir,
     FILE_EXTENSIONS: [".txt"],
     WEB_SERVER_PORT: 3001,
