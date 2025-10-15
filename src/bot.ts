@@ -173,8 +173,8 @@ export class Bot {
         return;
       }
 
-      const content = formatAllResultsList(query, results);
-      await interaction.editReply({ content });
+      const response = formatAllResultsList(query, results);
+      await interaction.editReply(response);
     } else {
       this.logger.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
       await interaction.reply({

@@ -1,21 +1,12 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
-
-/**
- * Maximum length for a Discord message in characters.
- */
-const DISCORD_MAX_MESSAGE_LENGTH = 2000;
-
-/**
- * Safety factor for message length to leave room for formatting and edge cases.
- */
-const MESSAGE_LENGTH_SAFETY_FACTOR = 0.95;
 
 /**
  * Options for formatting search results into a Discord message.
@@ -91,43 +82,26 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 }
 
 /**
- * Format all search results as a simple list of filenames without URLs.
+ * Format all search results as a text file attachment.
  *
  * @param query - The search query
  * @param results - All search results
- * @returns Formatted message with all filenames
+ * @returns Object with message content and file attachment
  */
-export function formatAllResultsList(query: string, results: SearchResult[]): string {
-  const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * MESSAGE_LENGTH_SAFETY_FACTOR);
-  const found = `All ${results.length} file(s) matching "${query}"`;
-  const header = `${found}:\n\n`;
-
+export function formatAllResultsList(
+  query: string,
+  results: SearchResult[],
+): { content: string; files: AttachmentBuilder[] } {
   const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
 
-  let content = header;
-  let includedCount = 0;
+  const fileContent = sortedResults.map((result) => result.file.path).join("\n");
 
-  for (const result of sortedResults) {
-    const line = `- ${result.file.path}\n`;
-    const remaining = results.length - includedCount;
-    const truncationSuffix = `\n...and ${remaining} more`;
-    const potentialLength = content.length + line.length + truncationSuffix.length;
+  const attachment = new AttachmentBuilder(Buffer.from(fileContent, "utf-8")).setName(
+    `search-results-${query}.txt`,
+  );
 
-    if (potentialLength > maxLength) {
-      break;
-    }
-
-    content += line;
-    includedCount++;
-  }
-
-  if (includedCount < results.length) {
-    const remaining = results.length - includedCount;
-    content = content.trimEnd();
-    content += `\n...and ${remaining} more`;
-  } else {
-    content = content.trimEnd();
-  }
-
-  return content;
+  return {
+    content: `All ${results.length} file(s) matching "${query}":`,
+    files: [attachment],
+  };
 }
