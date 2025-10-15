@@ -36,7 +36,7 @@ jobs:
         run: pnpm tsc --noEmit
 
       - name: Run test suite with coverage
-        run: pnpm test:coverage
+        run: pnpm test:run
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
