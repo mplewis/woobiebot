@@ -19,6 +19,30 @@ const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 const MESSAGE_LENGTH_SAFETY_FACTOR = 0.95;
 
 /**
+ * Threshold for high relevance results (top group).
+ * Results with scores below this fraction of the score range are considered most relevant.
+ */
+const HIGH_RELEVANCE_THRESHOLD = 0.3;
+
+/**
+ * Threshold for medium relevance results (middle group).
+ * Results with scores below this fraction of the score range are considered moderately relevant.
+ */
+const MEDIUM_RELEVANCE_THRESHOLD = 0.6;
+
+/**
+ * Partitioned search results grouped by relevance score.
+ */
+export interface PartitionedResults {
+  /** Results with high relevance (low scores) */
+  best: SearchResult[];
+  /** Results with medium relevance */
+  medium: SearchResult[];
+  /** Results with low relevance (high scores) */
+  worst: SearchResult[];
+}
+
+/**
  * Options for formatting search results into a Discord message.
  */
 export interface FormatSearchResultsOptions {
@@ -47,6 +71,31 @@ export interface FormattedSearchResults {
 }
 
 /**
+ * Partition search results into three groups based on score thresholds.
+ * Groups are determined by HIGH_RELEVANCE_THRESHOLD and MEDIUM_RELEVANCE_THRESHOLD.
+ *
+ * @param results - Array of search results to partition
+ * @returns Partitioned results grouped by relevance
+ */
+export function partitionResultsByScore(results: SearchResult[]): PartitionedResults {
+  const best: SearchResult[] = [];
+  const medium: SearchResult[] = [];
+  const worst: SearchResult[] = [];
+
+  for (const result of [...results].sort((a, b) => a.file.path.localeCompare(b.file.path))) {
+    if (result.score < HIGH_RELEVANCE_THRESHOLD) {
+      best.push(result);
+    } else if (result.score < MEDIUM_RELEVANCE_THRESHOLD) {
+      medium.push(result);
+    } else {
+      worst.push(result);
+    }
+  }
+
+  return { best, medium, worst };
+}
+
+/**
  * Format search results into a Discord message with download links and quota information.
  *
  * @param options - Configuration for formatting the search results
@@ -56,7 +105,7 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
   const { query, results, userId, rateLimitResult, urlExpiryMs, generateDownloadUrl } = options;
 
   const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * MESSAGE_LENGTH_SAFETY_FACTOR);
-  const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
+  const sortedResults = [...results].sort((a, b) => a.score - b.score);
 
   const expiryTimestamp = Math.floor((Date.now() + urlExpiryMs) / 1000);
   const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
@@ -108,6 +157,8 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 
 /**
  * Format all search results as a text file attachment.
+ * Results are sorted into three groups by score (best, medium, worst),
+ * with each group alphabetized by path.
  *
  * @param query - The search query
  * @param results - All search results
@@ -117,9 +168,31 @@ export function formatAllResultsList(
   query: string,
   results: SearchResult[],
 ): { content: string; files: AttachmentBuilder[] } {
-  const sortedResults = [...results].sort((a, b) => a.file.path.localeCompare(b.file.path));
+  if (results.length === 0) {
+    const attachment = new AttachmentBuilder(Buffer.from("", "utf-8")).setName(
+      `search-results-${query}.txt`,
+    );
+    return {
+      content: `All 0 file(s) matching "${query}":`,
+      files: [attachment],
+    };
+  }
 
-  const fileContent = sortedResults.map((result) => result.file.path).join("\n");
+  const { best, medium, worst } = partitionResultsByScore(results);
+
+  const headers = ["MOST RELEVANT", "MODERATE RELEVANCE", "LEAST RELEVANT"];
+  const groupsWithHeaders = [
+    { header: headers[0], items: best },
+    { header: headers[1], items: medium },
+    { header: headers[2], items: worst },
+  ].filter((group) => group.items.length > 0);
+
+  const divider = "========================================";
+  const fileContent = groupsWithHeaders
+    .map(
+      (group) => `${group.header}\n${divider}\n${group.items.map((r) => r.file.path).join("\n")}`,
+    )
+    .join("\n\n");
 
   const attachment = new AttachmentBuilder(Buffer.from(fileContent, "utf-8")).setName(
     `search-results-${query}.txt`,

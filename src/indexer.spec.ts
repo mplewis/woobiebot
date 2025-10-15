@@ -80,6 +80,60 @@ it("searches files by path (fuzzy)", async () => {
   await indexer.stop();
 });
 
+it("sorts search results by relevance score", async () => {
+  await mkdir(join(TEST_DIR, "patterns"), { recursive: true });
+  await mkdir(join(TEST_DIR, "creatures"), { recursive: true });
+  await mkdir(join(TEST_DIR, "accessories"), { recursive: true });
+
+  await writeFile(join(TEST_DIR, "accessories/hat.pdf"), "hat pattern");
+  await writeFile(join(TEST_DIR, "accessories/mittens.pdf"), "mittens pattern");
+  await writeFile(join(TEST_DIR, "accessories/socks.pdf"), "socks pattern");
+  await writeFile(join(TEST_DIR, "ancient-dragon.pdf"), "ancient pattern");
+  await writeFile(join(TEST_DIR, "baby-dragon.pdf"), "baby pattern");
+  await writeFile(join(TEST_DIR, "bunny.pdf"), "bunny pattern");
+  await writeFile(join(TEST_DIR, "creatures/dragon-scales.pdf"), "scales pattern");
+  await writeFile(join(TEST_DIR, "creatures/dragon-toy.pdf"), "toy pattern");
+  await writeFile(join(TEST_DIR, "dragon-plushie.pdf"), "plushie pattern");
+  await writeFile(join(TEST_DIR, "dragon.pdf"), "dragon pattern");
+  await writeFile(join(TEST_DIR, "elephant.pdf"), "elephant pattern");
+  await writeFile(join(TEST_DIR, "octopus.pdf"), "octopus pattern");
+  await writeFile(join(TEST_DIR, "patterns/blanket.pdf"), "blanket pattern");
+  await writeFile(join(TEST_DIR, "patterns/cat.pdf"), "cat pattern");
+  await writeFile(join(TEST_DIR, "patterns/chinese-dragon.pdf"), "chinese pattern");
+  await writeFile(join(TEST_DIR, "patterns/dragon-wings.pdf"), "wings pattern");
+  await writeFile(join(TEST_DIR, "patterns/fire-dragon.pdf"), "fire pattern");
+  await writeFile(join(TEST_DIR, "patterns/scarf.pdf"), "scarf pattern");
+  await writeFile(join(TEST_DIR, "turtle.pdf"), "turtle pattern");
+  await writeFile(join(TEST_DIR, "water-dragon.pdf"), "water pattern");
+
+  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".pdf"], threshold: 0.75 });
+  await indexer.start();
+
+  const results = indexer.search("dragon");
+
+  const resultPaths = results.map((r) => `${r.score}: ${r.file.path}`);
+  expect(resultPaths).toMatchInlineSnapshot(`
+    [
+      "0.001: dragon-plushie.pdf",
+      "0.001: dragon.pdf",
+      "0.05: baby-dragon.pdf",
+      "0.06: water-dragon.pdf",
+      "0.08: ancient-dragon.pdf",
+      "0.09: patterns/dragon-wings.pdf",
+      "0.1: creatures/dragon-scales.pdf",
+      "0.1: creatures/dragon-toy.pdf",
+      "0.14: patterns/fire-dragon.pdf",
+      "0.17: patterns/chinese-dragon.pdf",
+      "0.6966666666666667: elephant.pdf",
+      "0.7066666666666667: patterns/blanket.pdf",
+      "0.7066666666666667: patterns/cat.pdf",
+      "0.7066666666666667: patterns/scarf.pdf",
+    ]
+  `);
+
+  await indexer.stop();
+});
+
 it("filters by file extensions", async () => {
   await writeFile(join(TEST_DIR, "file.txt"), "txt content");
   await writeFile(join(TEST_DIR, "file.pdf"), "pdf content");

@@ -8,6 +8,12 @@ import { lookup } from "mime-types";
 import { generateFileId } from "./fileId.js";
 import { logger } from "./logger.js";
 
+/**
+ * Default threshold for fuzzy search matching (0-1 scale).
+ * Lower values require closer matches, higher values allow more fuzzy matching.
+ */
+const DEFAULT_MATCH_THRESHOLD = 0.6;
+
 export interface FileMetadata {
   id: string;
   name: string;
@@ -50,7 +56,7 @@ export class FileIndexer {
   constructor(config: FileIndexerConfig) {
     this.directory = config.directory;
     this.extensions = config.extensions;
-    this.threshold = config.threshold ?? 0.6;
+    this.threshold = config.threshold ?? DEFAULT_MATCH_THRESHOLD;
   }
 
   /**

@@ -1,34 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatAllResultsList, formatSearchResults } from "./format.js";
+import { formatAllResultsList, formatSearchResults, partitionResultsByScore } from "./format.js";
 import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
+/**
+ * Factory function to create SearchResult objects with sensible defaults.
+ * Accepts partial overrides for any field.
+ */
+function createSearchResult(overrides: {
+  id?: string;
+  name?: string;
+  path?: string;
+  absolutePath?: string;
+  size?: number;
+  mtime?: Date;
+  mimeType?: string;
+  score?: number;
+}): SearchResult {
+  const name = overrides.name ?? "test.txt";
+  const path = overrides.path ?? name;
+  const absolutePath = overrides.absolutePath ?? `/path/${path}`;
+
+  return {
+    file: {
+      id: overrides.id ?? "file1",
+      name,
+      path,
+      absolutePath,
+      size: overrides.size ?? 100,
+      mtime: overrides.mtime ?? new Date("2024-01-01"),
+      mimeType: overrides.mimeType ?? "text/plain",
+    },
+    score: overrides.score ?? 0.5,
+  };
+}
+
 describe("formatSearchResults", () => {
   const mockResults: SearchResult[] = [
-    {
-      file: {
-        id: "file1",
-        name: "test1.txt",
-        path: "test1.txt",
-        absolutePath: "/path/test1.txt",
-        size: 100,
-        mtime: new Date("2024-01-01"),
-        mimeType: "text/plain",
-      },
-      score: 0.5,
-    },
-    {
-      file: {
-        id: "file2",
-        name: "test2.txt",
-        path: "test2.txt",
-        absolutePath: "/path/test2.txt",
-        size: 200,
-        mtime: new Date("2024-01-02"),
-        mimeType: "text/plain",
-      },
-      score: 0.6,
-    },
+    createSearchResult({ path: "test1.txt", score: 0.5 }),
+    createSearchResult({ path: "test2.txt", score: 0.6 }),
   ];
 
   const mockRateLimitResult: RateLimitResult = {
@@ -57,7 +67,7 @@ describe("formatSearchResults", () => {
       "Found 2 file(s) matching "test":
 
       - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
+      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 5 downloads remaining, refreshing <t:1705320000:R>."
@@ -89,7 +99,7 @@ describe("formatSearchResults", () => {
       "Found 2 file(s) matching "test":
 
       - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file2)
+      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 1 download remaining, refreshing <t:1705320000:R>."
@@ -102,18 +112,11 @@ describe("formatSearchResults", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
 
-    const manyResults: SearchResult[] = Array.from({ length: 50 }, (_, i) => ({
-      file: {
-        id: `file${i}`,
-        name: `test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
+    const manyResults: SearchResult[] = Array.from({ length: 50 }, (_, i) =>
+      createSearchResult({
         path: `very/long/path/to/exceed/message/length/limits/test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
-        absolutePath: `/absolute/very/long/path/to/exceed/message/length/limits/test-file-with-a-very-long-name-to-exceed-message-limits-${i}.txt`,
-        size: 100,
-        mtime: new Date("2024-01-01"),
-        mimeType: "text/plain",
-      },
-      score: 0.5,
-    }));
+      }),
+    );
 
     const result = formatSearchResults({
       query: "test",
@@ -132,21 +135,59 @@ describe("formatSearchResults", () => {
 
     vi.useRealTimers();
   });
+
+  it("sorts results by relevance score", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
+
+    const unsortedResults: SearchResult[] = [
+      createSearchResult({ path: "patterns/granny-square-blanket.pdf", score: 0.65 }),
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-octopus.pdf", score: 0.05 }),
+      createSearchResult({ path: "patterns/beginner-scarf.pdf", score: 0.82 }),
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-bunny.pdf", score: 0.08 }),
+      createSearchResult({ path: "patterns/accessories/chunky-hat.pdf", score: 0.9 }),
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-bear.pdf", score: 0.12 }),
+      createSearchResult({ path: "patterns/accessories/lacy-shawl.pdf", score: 0.75 }),
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-cat.pdf", score: 0.1 }),
+      createSearchResult({ path: "patterns/accessories/cozy-mittens.pdf", score: 0.88 }),
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-dragon.pdf", score: 0.15 }),
+    ];
+
+    const result = formatSearchResults({
+      query: "amigurumi",
+      results: unsortedResults,
+      userId: "user123",
+      rateLimitResult: mockRateLimitResult,
+      urlExpiryMs: 600000,
+      generateDownloadUrl: mockGenerateDownloadUrl,
+    });
+
+    expect(result.content).toMatchInlineSnapshot(`
+      "Found 10 file(s) matching "amigurumi":
+
+      - [patterns/amigurumi/amigurumi-octopus.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/amigurumi/amigurumi-bunny.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/amigurumi/amigurumi-cat.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/amigurumi/amigurumi-bear.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/amigurumi/amigurumi-dragon.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/granny-square-blanket.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/accessories/lacy-shawl.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/beginner-scarf.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/accessories/cozy-mittens.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [patterns/accessories/chunky-hat.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+
+      Links expire <t:1705313400:R>.
+      You have 5 downloads remaining, refreshing <t:1705320000:R>."
+    `);
+
+    vi.useRealTimers();
+  });
 });
 
 describe("formatAllResultsList", () => {
-  const mockResults: SearchResult[] = Array.from({ length: 20 }, (_, i) => ({
-    file: {
-      id: `file${i}`,
-      name: `test${i}.txt`,
-      path: `folder/test${i}.txt`,
-      absolutePath: `/path/folder/test${i}.txt`,
-      size: 100 * i,
-      mtime: new Date("2024-01-01"),
-      mimeType: "text/plain",
-    },
-    score: 0.5,
-  }));
+  const mockResults: SearchResult[] = Array.from({ length: 20 }, (_, i) =>
+    createSearchResult({ path: `folder/test${i}.txt` }),
+  );
 
   it("formats all results as file attachment", () => {
     const result = formatAllResultsList("test", mockResults);
@@ -171,9 +212,112 @@ describe("formatAllResultsList", () => {
 
     const fileContent = result.files[0]?.attachment.toString();
     expect(fileContent).toMatchInlineSnapshot(`
-      "folder/test0.txt
+      "MODERATE RELEVANCE
+      ========================================
+      folder/test0.txt
       folder/test1.txt
       folder/test2.txt"
+    `);
+  });
+
+  it("sorts results into three score groups, alphabetized within each", () => {
+    const mixedResults: SearchResult[] = [
+      createSearchResult({ path: "patterns/amigurumi/amigurumi-cat.pdf", score: 0.1 }),
+      createSearchResult({ path: "patterns/amigurumi/bunny-amigurumi.pdf", score: 0.15 }),
+      createSearchResult({ path: "patterns/amigurumi/zebra-amigurumi.pdf", score: 0.2 }),
+      createSearchResult({ path: "patterns/bear-pattern.pdf", score: 0.4 }),
+      createSearchResult({ path: "patterns/toys/dragon-amigurumi.pdf", score: 0.5 }),
+      createSearchResult({ path: "patterns/amigurumi/elephant-amigurumi.pdf", score: 0.6 }),
+      createSearchResult({ path: "patterns/accessories/hat-pattern.pdf", score: 0.8 }),
+      createSearchResult({ path: "patterns/accessories/scarf-pattern.pdf", score: 0.85 }),
+      createSearchResult({ path: "patterns/socks/wool-socks.pdf", score: 0.9 }),
+    ];
+
+    const result = formatAllResultsList("amigurumi", mixedResults);
+
+    expect(result.content).toBe('All 9 file(s) matching "amigurumi":');
+    expect(result.files).toHaveLength(1);
+
+    const fileContent = result.files[0]?.attachment.toString();
+    expect(fileContent).toMatchInlineSnapshot(`
+      "MOST RELEVANT
+      ========================================
+      patterns/amigurumi/amigurumi-cat.pdf
+      patterns/amigurumi/bunny-amigurumi.pdf
+      patterns/amigurumi/zebra-amigurumi.pdf
+
+      MODERATE RELEVANCE
+      ========================================
+      patterns/bear-pattern.pdf
+      patterns/toys/dragon-amigurumi.pdf
+
+      LEAST RELEVANT
+      ========================================
+      patterns/accessories/hat-pattern.pdf
+      patterns/accessories/scarf-pattern.pdf
+      patterns/amigurumi/elephant-amigurumi.pdf
+      patterns/socks/wool-socks.pdf"
+    `);
+  });
+});
+
+describe("partitionResultsByScore", () => {
+  it("partitions results with comprehensive edge cases", () => {
+    const results: SearchResult[] = [
+      createSearchResult({ path: "absolute-zero.txt", score: 0.0 }),
+      createSearchResult({ path: "very-best.txt", score: 0.05 }),
+      createSearchResult({ path: "best.txt", score: 0.15 }),
+      createSearchResult({ path: "just-below-best-threshold.txt", score: 0.19 }),
+      createSearchResult({ path: "at-best-threshold.txt", score: 0.2 }),
+      createSearchResult({ path: "low-medium.txt", score: 0.25 }),
+      createSearchResult({ path: "mid-medium.txt", score: 0.4 }),
+      createSearchResult({ path: "high-medium.txt", score: 0.5 }),
+      createSearchResult({ path: "just-below-worst-threshold.txt", score: 0.59 }),
+      createSearchResult({ path: "at-worst-threshold.txt", score: 0.6 }),
+      createSearchResult({ path: "worst.txt", score: 0.65 }),
+      createSearchResult({ path: "very-worst.txt", score: 0.8 }),
+      createSearchResult({ path: "extremely-worst.txt", score: 0.85 }),
+      createSearchResult({ path: "near-max.txt", score: 0.9 }),
+      createSearchResult({ path: "absolute-max.txt", score: 1.0 }),
+    ];
+
+    const partitioned = partitionResultsByScore(results);
+
+    const simplified = Object.entries(partitioned).reduce(
+      (
+        acc: Record<string, { file: { id: string; name: string; path: string } }[]>,
+        [key, group],
+      ) => {
+        acc[key] = group.map((r: { file: { path: string } }) => r.file.path);
+        return acc;
+      },
+      {},
+    );
+
+    expect(simplified).toMatchInlineSnapshot(`
+      {
+        "best": [
+          "absolute-zero.txt",
+          "at-best-threshold.txt",
+          "best.txt",
+          "just-below-best-threshold.txt",
+          "low-medium.txt",
+          "very-best.txt",
+        ],
+        "medium": [
+          "high-medium.txt",
+          "just-below-worst-threshold.txt",
+          "mid-medium.txt",
+        ],
+        "worst": [
+          "absolute-max.txt",
+          "at-worst-threshold.txt",
+          "extremely-worst.txt",
+          "near-max.txt",
+          "very-worst.txt",
+          "worst.txt",
+        ],
+      }
     `);
   });
 });
