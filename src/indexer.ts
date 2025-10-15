@@ -7,6 +7,7 @@ import Fuse from "fuse.js";
 import { lookup } from "mime-types";
 import { generateFileId } from "./fileId.js";
 import { logger } from "./logger.js";
+import { parseQuery } from "./queryParser.js";
 
 /**
  * Default threshold for fuzzy search matching (0-1 scale).
@@ -99,18 +100,80 @@ export class FileIndexer {
   }
 
   /**
-   * Fuzzy search files by path.
+   * Search files by path with support for exact matching via quoted strings.
+   * Quoted phrases (e.g., "exact match") are matched literally,
+   * while unquoted terms use fuzzy search.
+   *
+   * @param query - Search query with optional quoted phrases
+   * @returns Array of search results sorted by relevance
+   *
+   * @example
+   * search('dragon') // Fuzzy search for 'dragon'
+   * search('"dragon.pdf"') // Exact match for 'dragon.pdf' in path
+   * search('"patterns/" dragon') // Exact match for 'patterns/' AND fuzzy match for 'dragon'
    */
   search(query: string): SearchResult[] {
     if (!this.fuse || query.trim() === "") {
       return [];
     }
 
-    const results = this.fuse.search(query);
-    return results.map((result) => ({
-      file: result.item,
-      score: result.score ?? 0,
-    }));
+    const parsed = parseQuery(query);
+    const allFiles = this.getAll();
+    const resultMap = new Map<string, SearchResult>();
+
+    if (parsed.exactPhrases.length > 0) {
+      for (const file of allFiles) {
+        const matchesAllPhrases = parsed.exactPhrases.every((phrase) =>
+          file.path.toLowerCase().includes(phrase.toLowerCase()),
+        );
+
+        if (matchesAllPhrases) {
+          resultMap.set(file.id, { file, score: 0 });
+        }
+      }
+    }
+
+    if (parsed.fuzzyTerms.length > 0) {
+      const fuzzyQuery = parsed.fuzzyTerms.join(" ");
+      const fuzzyResults = this.fuse.search(fuzzyQuery);
+
+      for (const result of fuzzyResults) {
+        const fileId = result.item.id;
+        const score = result.score ?? 0;
+
+        if (parsed.exactPhrases.length > 0) {
+          const existingResult = resultMap.get(fileId);
+          if (existingResult) {
+            existingResult.score = Math.min(existingResult.score + score * 0.1, score);
+          }
+        } else {
+          resultMap.set(fileId, {
+            file: result.item,
+            score,
+          });
+        }
+      }
+    }
+
+    if (parsed.exactPhrases.length > 0 && parsed.fuzzyTerms.length > 0) {
+      const exactOnlyIds = new Set<string>();
+      for (const [id, result] of resultMap.entries()) {
+        if (result.score === 0) {
+          const matchesFuzzy = parsed.fuzzyTerms.some((term) =>
+            result.file.path.toLowerCase().includes(term.toLowerCase()),
+          );
+          if (!matchesFuzzy) {
+            exactOnlyIds.add(id);
+          }
+        }
+      }
+
+      for (const id of exactOnlyIds) {
+        resultMap.delete(id);
+      }
+    }
+
+    return Array.from(resultMap.values()).sort((a, b) => a.score - b.score);
   }
 
   /**

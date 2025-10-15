@@ -37,7 +37,8 @@
       "Bash(pnpm tsc:*)",
       "Bash(xargs kill:*)",
       "mcp__fetch__imageFetch",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []

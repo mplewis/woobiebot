@@ -1,152 +1,87 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import type { FileIndexerConfig } from "./indexer.js";
 import { FileIndexer } from "./indexer.js";
+import { createTestFiles } from "./testUtils.js";
 
 const TEST_DIR = join(process.cwd(), "test-files-temp");
-
-beforeEach(async () => {
-  await mkdir(TEST_DIR, { recursive: true });
-});
 
 afterEach(async () => {
   await rm(TEST_DIR, { recursive: true, force: true });
 });
 
-it("builds index from directory on start", async () => {
-  await writeFile(join(TEST_DIR, "file1.txt"), "content1");
-  await writeFile(join(TEST_DIR, "file2.txt"), "content2");
-
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
+/**
+ * Helper function to manage FileIndexer lifecycle in tests.
+ * Automatically starts the indexer before calling the test function and stops it after.
+ *
+ * @param options - Configuration options for the FileIndexer
+ * @param fn - Test function that receives the started indexer
+ * @returns The result of the test function
+ */
+async function withIndexer<T>(
+  options: FileIndexerConfig,
+  fn: (indexer: FileIndexer) => Promise<T>,
+): Promise<T> {
+  const indexer = new FileIndexer(options);
   await indexer.start();
+  try {
+    return await fn(indexer);
+  } finally {
+    await indexer.stop();
+  }
+}
 
-  const files = indexer.getAll();
-  expect(files).toHaveLength(2);
-  expect(files.map((f) => f.path).sort()).toEqual(["file1.txt", "file2.txt"]);
+it("builds index from directory on start", async () => {
+  await createTestFiles(TEST_DIR, ["file1.txt", "file2.txt"]);
 
-  await indexer.stop();
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+    const files = indexer.getAll();
+    expect(files).toHaveLength(2);
+    expect(files.map((f) => f.path).sort()).toEqual(["file1.txt", "file2.txt"]);
+  });
 });
 
 it("generates consistent IDs from paths", async () => {
-  await writeFile(join(TEST_DIR, "test.txt"), "content");
+  await createTestFiles(TEST_DIR, ["test.txt"]);
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+    const files = indexer.getAll();
+    const file = files[0];
+    expect(file).toBeDefined();
+    if (!file) {
+      throw new Error("File not found");
+    }
 
-  const files = indexer.getAll();
-  const file = files[0];
-  expect(file).toBeDefined();
-  if (!file) {
-    throw new Error("File not found");
-  }
-
-  const foundById = indexer.getById(file.id);
-  expect(foundById).toEqual(file);
-
-  await indexer.stop();
+    const foundById = indexer.getById(file.id);
+    expect(foundById).toEqual(file);
+  });
 });
 
 it("finds files by ID", async () => {
-  await writeFile(join(TEST_DIR, "findme.txt"), "content");
+  await createTestFiles(TEST_DIR, ["findme.txt"]);
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+    const files = indexer.getAll();
+    const file = files[0];
+    expect(file).toBeDefined();
+    if (!file) {
+      throw new Error("File not found");
+    }
 
-  const files = indexer.getAll();
-  const file = files[0];
-  expect(file).toBeDefined();
-  if (!file) {
-    throw new Error("File not found");
-  }
-
-  const found = indexer.getById(file.id);
-  expect(found?.path).toBe("findme.txt");
-
-  await indexer.stop();
-});
-
-it("searches files by path (fuzzy)", async () => {
-  await writeFile(join(TEST_DIR, "document.pdf"), "pdf content");
-  await writeFile(join(TEST_DIR, "readme.txt"), "readme content");
-  await writeFile(join(TEST_DIR, "notes.txt"), "notes content");
-
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".pdf", ".txt"] });
-  await indexer.start();
-
-  const results = indexer.search("readme");
-  expect(results.length).toBeGreaterThan(0);
-  expect(results[0]?.file.path).toBe("readme.txt");
-
-  await indexer.stop();
-});
-
-it("sorts search results by relevance score", async () => {
-  await mkdir(join(TEST_DIR, "patterns"), { recursive: true });
-  await mkdir(join(TEST_DIR, "creatures"), { recursive: true });
-  await mkdir(join(TEST_DIR, "accessories"), { recursive: true });
-
-  await writeFile(join(TEST_DIR, "accessories/hat.pdf"), "hat pattern");
-  await writeFile(join(TEST_DIR, "accessories/mittens.pdf"), "mittens pattern");
-  await writeFile(join(TEST_DIR, "accessories/socks.pdf"), "socks pattern");
-  await writeFile(join(TEST_DIR, "ancient-dragon.pdf"), "ancient pattern");
-  await writeFile(join(TEST_DIR, "baby-dragon.pdf"), "baby pattern");
-  await writeFile(join(TEST_DIR, "bunny.pdf"), "bunny pattern");
-  await writeFile(join(TEST_DIR, "creatures/dragon-scales.pdf"), "scales pattern");
-  await writeFile(join(TEST_DIR, "creatures/dragon-toy.pdf"), "toy pattern");
-  await writeFile(join(TEST_DIR, "dragon-plushie.pdf"), "plushie pattern");
-  await writeFile(join(TEST_DIR, "dragon.pdf"), "dragon pattern");
-  await writeFile(join(TEST_DIR, "elephant.pdf"), "elephant pattern");
-  await writeFile(join(TEST_DIR, "octopus.pdf"), "octopus pattern");
-  await writeFile(join(TEST_DIR, "patterns/blanket.pdf"), "blanket pattern");
-  await writeFile(join(TEST_DIR, "patterns/cat.pdf"), "cat pattern");
-  await writeFile(join(TEST_DIR, "patterns/chinese-dragon.pdf"), "chinese pattern");
-  await writeFile(join(TEST_DIR, "patterns/dragon-wings.pdf"), "wings pattern");
-  await writeFile(join(TEST_DIR, "patterns/fire-dragon.pdf"), "fire pattern");
-  await writeFile(join(TEST_DIR, "patterns/scarf.pdf"), "scarf pattern");
-  await writeFile(join(TEST_DIR, "turtle.pdf"), "turtle pattern");
-  await writeFile(join(TEST_DIR, "water-dragon.pdf"), "water pattern");
-
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".pdf"], threshold: 0.75 });
-  await indexer.start();
-
-  const results = indexer.search("dragon");
-
-  const resultPaths = results.map((r) => `${r.score}: ${r.file.path}`);
-  expect(resultPaths).toMatchInlineSnapshot(`
-    [
-      "0.001: dragon-plushie.pdf",
-      "0.001: dragon.pdf",
-      "0.05: baby-dragon.pdf",
-      "0.06: water-dragon.pdf",
-      "0.08: ancient-dragon.pdf",
-      "0.09: patterns/dragon-wings.pdf",
-      "0.1: creatures/dragon-scales.pdf",
-      "0.1: creatures/dragon-toy.pdf",
-      "0.14: patterns/fire-dragon.pdf",
-      "0.17: patterns/chinese-dragon.pdf",
-      "0.6966666666666667: elephant.pdf",
-      "0.7066666666666667: patterns/blanket.pdf",
-      "0.7066666666666667: patterns/cat.pdf",
-      "0.7066666666666667: patterns/scarf.pdf",
-    ]
-  `);
-
-  await indexer.stop();
+    const found = indexer.getById(file.id);
+    expect(found?.path).toBe("findme.txt");
+  });
 });
 
 it("filters by file extensions", async () => {
-  await writeFile(join(TEST_DIR, "file.txt"), "txt content");
-  await writeFile(join(TEST_DIR, "file.pdf"), "pdf content");
-  await writeFile(join(TEST_DIR, "file.jpg"), "jpg content");
+  await createTestFiles(TEST_DIR, ["file.txt", "file.pdf", "file.jpg"]);
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt", ".pdf"] });
-  await indexer.start();
-
-  const files = indexer.getAll();
-  expect(files).toHaveLength(2);
-  expect(files.map((f) => f.path).sort()).toEqual(["file.pdf", "file.txt"]);
-
-  await indexer.stop();
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt", ".pdf"] }, async (indexer) => {
+    const files = indexer.getAll();
+    expect(files).toHaveLength(2);
+    expect(files.map((f) => f.path).sort()).toEqual(["file.pdf", "file.txt"]);
+  });
 });
 
 it.skip("automatically detects new files", async () => {
@@ -212,55 +147,216 @@ it.skip("updates metadata on file changes", async () => {
 });
 
 it("handles subdirectories", async () => {
-  await mkdir(join(TEST_DIR, "subdir"), { recursive: true });
-  await writeFile(join(TEST_DIR, "root.txt"), "root");
-  await writeFile(join(TEST_DIR, "subdir", "nested.txt"), "nested");
+  await createTestFiles(TEST_DIR, ["root.txt", "subdir/nested.txt"]);
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
-
-  const files = indexer.getAll();
-  expect(files).toHaveLength(2);
-  expect(files.map((f) => f.path).sort()).toEqual(["root.txt", "subdir/nested.txt"]);
-
-  await indexer.stop();
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+    const files = indexer.getAll();
+    expect(files).toHaveLength(2);
+    expect(files.map((f) => f.path).sort()).toEqual(["root.txt", "subdir/nested.txt"]);
+  });
 });
 
-it("search returns empty array for empty query", async () => {
-  await writeFile(join(TEST_DIR, "file.txt"), "content");
+describe("search", () => {
+  it("searches files by path (fuzzy)", async () => {
+    await createTestFiles(TEST_DIR, ["document.pdf", "readme.txt", "notes.txt"]);
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf", ".txt"] }, async (indexer) => {
+      const results = indexer.search("readme");
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]?.file.path).toBe("readme.txt");
+    });
+  });
 
-  const results = indexer.search("");
-  expect(results).toEqual([]);
+  it("sorts results by relevance score", async () => {
+    await createTestFiles(TEST_DIR, [
+      "accessories/hat.pdf",
+      "accessories/mittens.pdf",
+      "accessories/socks.pdf",
+      "ancient-dragon.pdf",
+      "baby-dragon.pdf",
+      "bunny.pdf",
+      "creatures/dragon-scales.pdf",
+      "creatures/dragon-toy.pdf",
+      "dragon-plushie.pdf",
+      "dragon.pdf",
+      "elephant.pdf",
+      "octopus.pdf",
+      "patterns/blanket.pdf",
+      "patterns/cat.pdf",
+      "patterns/chinese-dragon.pdf",
+      "patterns/dragon-wings.pdf",
+      "patterns/fire-dragon.pdf",
+      "patterns/scarf.pdf",
+      "turtle.pdf",
+      "water-dragon.pdf",
+    ]);
 
-  await indexer.stop();
-});
+    await withIndexer(
+      { directory: TEST_DIR, extensions: [".pdf"], threshold: 0.75 },
+      async (indexer) => {
+        const results = indexer.search("dragon");
 
-it("search handles no results", async () => {
-  await writeFile(join(TEST_DIR, "file.txt"), "content");
+        const resultPaths = results.map((r) => `${r.score}: ${r.file.path}`);
+        expect(resultPaths).toMatchInlineSnapshot(`
+        [
+          "0.001: dragon-plushie.pdf",
+          "0.001: dragon.pdf",
+          "0.05: baby-dragon.pdf",
+          "0.06: water-dragon.pdf",
+          "0.08: ancient-dragon.pdf",
+          "0.09: patterns/dragon-wings.pdf",
+          "0.1: creatures/dragon-scales.pdf",
+          "0.1: creatures/dragon-toy.pdf",
+          "0.14: patterns/fire-dragon.pdf",
+          "0.17: patterns/chinese-dragon.pdf",
+          "0.6966666666666667: elephant.pdf",
+          "0.7066666666666667: patterns/blanket.pdf",
+          "0.7066666666666667: patterns/cat.pdf",
+          "0.7066666666666667: patterns/scarf.pdf",
+        ]
+      `);
+      },
+    );
+  });
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
+  it("returns empty array for empty query", async () => {
+    await createTestFiles(TEST_DIR, ["file.txt"]);
 
-  const results = indexer.search("nonexistent-xyzabc");
-  expect(results).toEqual([]);
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const results = indexer.search("");
+      expect(results).toEqual([]);
+    });
+  });
 
-  await indexer.stop();
-});
+  it("handles no results", async () => {
+    await createTestFiles(TEST_DIR, ["file.txt"]);
 
-it("handles typos in search queries", async () => {
-  await writeFile(join(TEST_DIR, "cactus.txt"), "content");
-  await writeFile(join(TEST_DIR, "coconut.txt"), "content");
-  await writeFile(join(TEST_DIR, "carrot.txt"), "content");
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const results = indexer.search("nonexistent-xyzabc");
+      expect(results).toEqual([]);
+    });
+  });
 
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
+  it("handles typos in queries", async () => {
+    await createTestFiles(TEST_DIR, ["cactus.txt", "coconut.txt", "carrot.txt"]);
 
-  const results = indexer.search("catcus");
-  expect(results.length).toBeGreaterThan(0);
-  expect(results[0]?.file.path).toBe("cactus.txt");
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const results = indexer.search("catcus");
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]?.file.path).toBe("cactus.txt");
+    });
+  });
 
-  await indexer.stop();
+  it("performs exact substring match with quoted strings", async () => {
+    await createTestFiles(TEST_DIR, ["dragon.pdf", "dragon-plushie.pdf", "fire-dragon.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"dragon.pdf"');
+      expect(results).toHaveLength(2);
+      expect(results.map((r) => r.file.path).sort()).toEqual(["dragon.pdf", "fire-dragon.pdf"]);
+    });
+  });
+
+  it("performs exact match with quoted path", async () => {
+    await createTestFiles(TEST_DIR, [
+      "patterns/dragon.pdf",
+      "patterns/bunny.pdf",
+      "accessories/hat.pdf",
+    ]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"patterns/"');
+      expect(results).toHaveLength(2);
+      expect(results.map((r) => r.file.path).sort()).toEqual([
+        "patterns/bunny.pdf",
+        "patterns/dragon.pdf",
+      ]);
+    });
+  });
+
+  it("combines exact and fuzzy search", async () => {
+    await createTestFiles(TEST_DIR, ["patterns/dragon.pdf", "patterns/bunny.pdf", "dragon.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"patterns/" dragon');
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file.path).toBe("patterns/dragon.pdf");
+    });
+  });
+
+  it("returns empty array when exact match fails", async () => {
+    await createTestFiles(TEST_DIR, ["dragon.pdf", "bunny.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"nonexistent.pdf"');
+      expect(results).toEqual([]);
+    });
+  });
+
+  it("handles multiple exact phrases", async () => {
+    await createTestFiles(TEST_DIR, [
+      "patterns/amigurumi/dragon.pdf",
+      "patterns/amigurumi/bunny.pdf",
+      "patterns/dragon.pdf",
+      "amigurumi/dragon.pdf",
+    ]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"patterns/" "amigurumi/"');
+      expect(results).toHaveLength(2);
+      expect(results.map((r) => r.file.path).sort()).toEqual([
+        "patterns/amigurumi/bunny.pdf",
+        "patterns/amigurumi/dragon.pdf",
+      ]);
+    });
+  });
+
+  it("exact match is case-insensitive", async () => {
+    await createTestFiles(TEST_DIR, ["Dragon.pdf", "bunny.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"dragon.pdf"');
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file.path).toBe("Dragon.pdf");
+    });
+  });
+
+  it("fuzzy search without quotes still works", async () => {
+    await createTestFiles(TEST_DIR, ["dragon-plushie.pdf", "fire-dragon.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search("dragon");
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.every((r) => r.file.path.includes("dragon"))).toBe(true);
+    });
+  });
+
+  it("handles exact match with special characters", async () => {
+    await createTestFiles(TEST_DIR, ["dragon (v2) [final].pdf", "dragon v2 final.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"dragon (v2) [final].pdf"');
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file.path).toBe("dragon (v2) [final].pdf");
+    });
+  });
+
+  it("handles exact match with hyphens and underscores", async () => {
+    await createTestFiles(TEST_DIR, ["fire-breathing_dragon.pdf", "fire breathing dragon.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search('"fire-breathing_dragon"');
+      expect(results).toHaveLength(1);
+      expect(results[0]?.file.path).toBe("fire-breathing_dragon.pdf");
+    });
+  });
+
+  it("matches exact filename only with path separator prefix", async () => {
+    await createTestFiles(TEST_DIR, ["dragon.pdf", "fire-dragon.pdf", "dragon-plushie.pdf"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".pdf"] }, async (indexer) => {
+      const results = indexer.search("dragon.pdf");
+      expect(results.length).toBeGreaterThan(0);
+    });
+  });
 });
