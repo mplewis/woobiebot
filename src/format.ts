@@ -8,6 +8,11 @@ import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
 /**
+ * Maximum length for a Discord message in characters.
+ */
+const DISCORD_MAX_MESSAGE_LENGTH = 2000;
+
+/**
  * Options for formatting search results into a Discord message.
  */
 export interface FormatSearchResultsOptions {
@@ -51,7 +56,7 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 
   const resultLinks = displayed.map((result) => {
     const downloadUrl = generateDownloadUrl(userId, result.file.id);
-    return `• [${result.file.name}](${downloadUrl})`;
+    return `- [${result.file.name}](${downloadUrl})`;
   });
 
   const more = results.length > maxResults ? `\n...and ${results.length - maxResults} more` : "";
@@ -87,7 +92,34 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
  * @returns Formatted message with all filenames
  */
 export function formatAllResultsList(query: string, results: SearchResult[]): string {
-  const filenames = results.map((result) => `• ${result.file.name}`);
+  const maxLength = Math.floor(DISCORD_MAX_MESSAGE_LENGTH * 0.9);
   const found = `All ${results.length} file(s) matching "${query}"`;
-  return `${found}:\n\n${filenames.join("\n")}`;
+  const header = `${found}:\n\n`;
+
+  let content = header;
+  let includedCount = 0;
+
+  for (const result of results) {
+    const line = `- ${result.file.name}\n`;
+    const remaining = results.length - includedCount;
+    const truncationSuffix = `\n...and ${remaining} more`;
+    const potentialLength = content.length + line.length + truncationSuffix.length;
+
+    if (potentialLength > maxLength) {
+      break;
+    }
+
+    content += line;
+    includedCount++;
+  }
+
+  if (includedCount < results.length) {
+    const remaining = results.length - includedCount;
+    content = content.trimEnd();
+    content += `\n...and ${remaining} more`;
+  } else {
+    content = content.trimEnd();
+  }
+
+  return content;
 }
