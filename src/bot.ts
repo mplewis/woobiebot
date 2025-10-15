@@ -1,8 +1,14 @@
-import { type ChatInputCommandInteraction, Client, Events, GatewayIntentBits } from "discord.js";
+import {
+  type ButtonInteraction,
+  type ChatInputCommandInteraction,
+  Client,
+  Events,
+  GatewayIntentBits,
+} from "discord.js";
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
 import { deployCommands } from "./deployCommands.js";
-import { formatSearchResults } from "./format.js";
+import { formatAllResultsList, formatSearchResults } from "./format.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
@@ -58,10 +64,11 @@ export class Bot {
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
       try {
-        if (!interaction.isChatInputCommand()) {
-          return;
+        if (interaction.isChatInputCommand()) {
+          await this.handleCommand(interaction);
+        } else if (interaction.isButton()) {
+          await this.handleButton(interaction);
         }
-        await this.handleCommand(interaction);
       } catch (error) {
         this.logger.error({ error }, "Uncaught error in interaction handler");
       }
@@ -130,7 +137,7 @@ export class Bot {
       return;
     }
 
-    const content = formatSearchResults({
+    const formatted = formatSearchResults({
       query,
       results,
       userId,
@@ -140,7 +147,41 @@ export class Bot {
       maxResults: this.config.MAX_RESULTS,
     });
 
-    await interaction.editReply({ content });
+    await interaction.editReply(formatted);
+  }
+
+  /**
+   * Handle button interactions for listing all search results.
+   *
+   * @param interaction - The button interaction
+   */
+  private async handleButton(interaction: ButtonInteraction): Promise<void> {
+    const userId = interaction.user.id;
+
+    if (interaction.customId.startsWith("list_all:")) {
+      const query = interaction.customId.slice("list_all:".length);
+      this.logger.info({ userId, query }, "List all results button");
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const results = this.indexer.search(query);
+
+      if (results.length === 0) {
+        await interaction.editReply({
+          content: `No files found matching "${query}".`,
+        });
+        return;
+      }
+
+      const content = formatAllResultsList(query, results);
+      await interaction.editReply({ content });
+    } else {
+      this.logger.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
+      await interaction.reply({
+        content: "Unknown button interaction.",
+        ephemeral: true,
+      });
+    }
   }
 
   /**

@@ -169,3 +169,65 @@ describe("search interaction", () => {
     expect(mockInteraction.getCapturedReply()).toBe("Search query must be at least 1 character.");
   });
 });
+
+describe("button interaction", () => {
+  /**
+   * Mock Discord button interaction object for testing button clicks
+   */
+  type MockButtonInteraction = {
+    customId: string;
+    user: { id: string };
+    deferReply: (options?: { ephemeral?: boolean }) => Promise<void>;
+    editReply: (options: { content: string }) => Promise<{ content: string }>;
+    reply: (options: { content: string; ephemeral?: boolean }) => Promise<{ content: string }>;
+  };
+
+  /**
+   * Creates a mock Discord button interaction with reply capture
+   */
+  const createMockButtonInteraction = (
+    customId: string,
+  ): MockButtonInteraction & { getCapturedReply: () => string } => {
+    let capturedReply = "";
+    return {
+      customId,
+      user: { id: "test-user-123" },
+      deferReply: async () => {
+        /* intentionally empty */
+      },
+      editReply: async (options: { content: string }) => {
+        capturedReply = options.content;
+        return options;
+      },
+      reply: async (options: { content: string; ephemeral?: boolean }) => {
+        capturedReply = options.content;
+        return options;
+      },
+      getCapturedReply: () => capturedReply,
+    };
+  };
+
+  /**
+   * Invokes the bot's handleButton method with a mock interaction
+   */
+  const callHandleButton = async (botInstance: Bot, mockInteraction: MockButtonInteraction) => {
+    const handleButton = (
+      botInstance as unknown as { handleButton: (interaction: unknown) => Promise<void> }
+    ).handleButton;
+    await handleButton.call(botInstance, mockInteraction);
+  };
+
+  beforeEach(async () => {
+    await indexer.start();
+  });
+
+  afterEach(async () => {
+    await indexer.stop();
+  });
+
+  it("replies to unknown button interactions", async () => {
+    const mockInteraction = createMockButtonInteraction("unknown_button:some_data");
+    await callHandleButton(bot, mockInteraction);
+    expect(mockInteraction.getCapturedReply()).toBe("Unknown button interaction.");
+  });
+});
