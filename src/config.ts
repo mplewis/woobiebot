@@ -35,10 +35,14 @@ const configSchema = z.object({
   RATE_LIMIT_STORAGE_DIR: z.string().default("tmp/rate_limit"),
   SEARCH_MIN_CHARS: z.coerce.number().int().positive().default(3),
   SEARCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  SCAN_INTERVAL_MINS: z.coerce.number().nonnegative().default(15),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
+/**
+ * Application configuration schema derived from environment variables.
+ */
 export type Config = z.infer<typeof configSchema>;
 
 /**
@@ -57,4 +61,7 @@ export function loadConfig(): Config {
   return result.data;
 }
 
+/**
+ * Global configuration instance loaded from environment variables.
+ */
 export const config = loadConfig();

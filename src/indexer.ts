@@ -1,7 +1,5 @@
 import { stat } from "node:fs/promises";
-import { basename, join, relative, resolve } from "node:path";
-import type { FSWatcher } from "chokidar";
-import { watch } from "chokidar";
+import { basename, join } from "node:path";
 import glob from "fast-glob";
 import Fuse from "fuse.js";
 import { lookup } from "mime-types";
@@ -15,6 +13,9 @@ import { parseQuery } from "./queryParser.js";
  */
 const DEFAULT_MATCH_THRESHOLD = 0.6;
 
+/**
+ * Metadata for an indexed file.
+ */
 export interface FileMetadata {
   id: string;
   name: string;
@@ -25,6 +26,9 @@ export interface FileMetadata {
   mimeType: string;
 }
 
+/**
+ * Search result containing a file and its relevance score.
+ */
 export interface SearchResult {
   file: FileMetadata;
   score: number;
@@ -40,28 +44,32 @@ export interface FileIndexerConfig {
   extensions: string[];
   /** Fuzzy search threshold (0-1, higher = more fuzzy) */
   threshold?: number;
+  /** Interval in minutes to rescan the directory (0 to disable) */
+  scanIntervalMins?: number;
 }
 
 /**
- * Automatically index files from a directory with file watching and fuzzy search.
- * Maintain an in-memory index that stays synchronized with the filesystem.
+ * Index files from a directory and provide fuzzy search functionality.
+ * Optionally rescans the directory at a configurable interval.
  */
 export class FileIndexer {
   private index: Map<string, FileMetadata> = new Map();
-  private watcher: FSWatcher | null = null;
   private fuse: Fuse<FileMetadata> | null = null;
+  private scanInterval: NodeJS.Timeout | null = null;
   private readonly directory: string;
   private readonly extensions: string[];
   private readonly threshold: number;
+  private readonly scanIntervalMins: number;
 
   constructor(config: FileIndexerConfig) {
     this.directory = config.directory;
     this.extensions = config.extensions;
     this.threshold = config.threshold ?? DEFAULT_MATCH_THRESHOLD;
+    this.scanIntervalMins = config.scanIntervalMins ?? 0;
   }
 
   /**
-   * Start the indexer: scan directory and set up file watcher.
+   * Start the indexer: scan directory, initialize search, and set up periodic rescanning.
    */
   async start(): Promise<void> {
     logger.info(
@@ -69,18 +77,21 @@ export class FileIndexer {
       "Starting file indexer",
     );
     await this._scanDirectory();
-    this._setupWatcher();
     this._initializeSearch();
+
+    if (this.scanIntervalMins > 0) {
+      this._setupPeriodicScanning();
+    }
     logger.info({ fileCount: this.index.size }, "File indexer started");
   }
 
   /**
-   * Stop the file watcher.
+   * Stop the indexer and clear any periodic scanning.
    */
-  async stop(): Promise<void> {
-    if (this.watcher) {
-      await this.watcher.close();
-      this.watcher = null;
+  stop(): void {
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+      this.scanInterval = null;
       logger.info("File indexer stopped");
     }
   }
@@ -177,7 +188,26 @@ export class FileIndexer {
   }
 
   /**
-   * Scan the directory and build the initial index.
+   * Set up periodic directory rescanning.
+   */
+  private _setupPeriodicScanning(): void {
+    const intervalMs = this.scanIntervalMins * 60 * 1000;
+    this.scanInterval = setInterval(() => {
+      logger.info({ directory: this.directory }, "Rescanning directory");
+      this._scanDirectory()
+        .then(() => {
+          this._updateSearch();
+          logger.info({ fileCount: this.index.size }, "Rescan complete");
+        })
+        .catch((err) => {
+          logger.error({ err }, "Error during rescan");
+        });
+    }, intervalMs);
+  }
+
+  /**
+   * Scan the directory and rebuild the index from scratch.
+   * Builds a new index separately and atomically replaces the old one to avoid race conditions.
    */
   private async _scanDirectory(): Promise<void> {
     const patterns = this.extensions.map((ext) => `**/*${ext}`);
@@ -187,15 +217,23 @@ export class FileIndexer {
       onlyFiles: true,
     });
 
+    const newIndex = new Map<string, FileMetadata>();
+
     for (const file of files) {
-      await this._indexFile(file);
+      const metadata = await this._buildFileMetadata(file);
+      if (metadata) {
+        newIndex.set(metadata.id, metadata);
+      }
     }
+
+    this.index = newIndex;
   }
 
   /**
-   * Index a single file.
+   * Build metadata for a single file.
+   * Returns null if the file cannot be indexed.
    */
-  private async _indexFile(relativePath: string): Promise<void> {
+  private async _buildFileMetadata(relativePath: string): Promise<FileMetadata | null> {
     const fullPath = join(this.directory, relativePath);
 
     try {
@@ -204,7 +242,9 @@ export class FileIndexer {
       const name = basename(relativePath);
       const mimeType = lookup(relativePath) || "application/octet-stream";
 
-      const metadata: FileMetadata = {
+      logger.debug({ id, path: relativePath }, "Indexed file");
+
+      return {
         id,
         name,
         path: relativePath,
@@ -213,62 +253,10 @@ export class FileIndexer {
         mtime: stats.mtime,
         mimeType,
       };
-
-      this.index.set(id, metadata);
-      this._updateSearch();
-
-      logger.debug({ id, path: relativePath }, "Indexed file");
     } catch (error) {
-      logger.warn({ path: relativePath, error }, "Failed to index file");
+      logger.error({ path: relativePath, error }, "Failed to index file");
+      return null;
     }
-  }
-
-  /**
-   * Remove a file from the index.
-   */
-  private _removeFile(relativePath: string): void {
-    const id = generateFileId(relativePath);
-    if (this.index.delete(id)) {
-      this._updateSearch();
-      logger.debug({ id, path: relativePath }, "Removed file from index");
-    }
-  }
-
-  /**
-   * Set up the file watcher.
-   */
-  private _setupWatcher(): void {
-    const absoluteDir = resolve(this.directory);
-    const patterns = this.extensions.map((ext) => join(absoluteDir, `**/*${ext}`));
-
-    this.watcher = watch(patterns, {
-      persistent: true,
-      ignoreInitial: true,
-      followSymlinks: false,
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 50,
-      },
-    });
-
-    this.watcher.on("add", (absolutePath) => {
-      const relativePath = relative(absoluteDir, absolutePath);
-      this._indexFile(relativePath);
-    });
-
-    this.watcher.on("change", (absolutePath) => {
-      const relativePath = relative(absoluteDir, absolutePath);
-      this._indexFile(relativePath);
-    });
-
-    this.watcher.on("unlink", (absolutePath) => {
-      const relativePath = relative(absoluteDir, absolutePath);
-      this._removeFile(relativePath);
-    });
-
-    this.watcher.on("error", (error) => {
-      logger.error({ error }, "File watcher error");
-    });
   }
 
   /**

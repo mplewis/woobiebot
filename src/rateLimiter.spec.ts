@@ -1,267 +1,265 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { RateLimiter } from "./rateLimiter.js";
 
-describe("RateLimiter", () => {
-  let limiter: RateLimiter;
-  const testStorageDir = "tmp/test-rate-limit";
+let limiter: RateLimiter;
+const testStorageDir = "tmp/test-rate-limit";
 
-  beforeEach(async () => {
-    limiter = new RateLimiter(10, 3600, testStorageDir);
-    await limiter.clear();
-  });
+beforeEach(async () => {
+  limiter = new RateLimiter(10, 3600, testStorageDir);
+  await limiter.clear();
+});
 
-  afterEach(async () => {
-    await limiter.clear();
-    try {
-      await fs.rmdir(testStorageDir);
-    } catch {
-      // Ignore
-    }
-  });
+afterEach(async () => {
+  await limiter.clear();
+  try {
+    await fs.rmdir(testStorageDir);
+  } catch {
+    // Ignore
+  }
+});
 
-  it("allows requests when under limit", async () => {
-    const result = await limiter.consume("user1");
+it("allows requests when under limit", async () => {
+  const result = await limiter.consume("user1");
 
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(9);
-  });
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(9);
+});
 
-  it("tracks remaining tokens correctly", async () => {
+it("tracks remaining tokens correctly", async () => {
+  await limiter.consume("user1");
+  await limiter.consume("user1");
+  const result = await limiter.consume("user1");
+
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(7);
+});
+
+it("blocks requests when limit exceeded", async () => {
+  for (let i = 0; i < 10; i++) {
     await limiter.consume("user1");
+  }
+  const result = await limiter.consume("user1");
+
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
+});
+
+it("tracks different users separately", async () => {
+  for (let i = 0; i < 10; i++) {
     await limiter.consume("user1");
-    const result = await limiter.consume("user1");
+  }
+  const result = await limiter.consume("user2");
 
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(7);
-  });
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(9);
+});
 
-  it("blocks requests when limit exceeded", async () => {
-    for (let i = 0; i < 10; i++) {
-      await limiter.consume("user1");
-    }
-    const result = await limiter.consume("user1");
+it("refills tokens over time", async () => {
+  limiter = new RateLimiter(10, 1, testStorageDir);
 
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
-  });
-
-  it("tracks different users separately", async () => {
-    for (let i = 0; i < 10; i++) {
-      await limiter.consume("user1");
-    }
-    const result = await limiter.consume("user2");
-
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(9);
-  });
-
-  it("refills tokens over time", async () => {
-    limiter = new RateLimiter(10, 1, testStorageDir);
-
-    for (let i = 0; i < 10; i++) {
-      await limiter.consume("user1", new Date(0));
-    }
-
-    let result = await limiter.consume("user1", new Date(0));
-    expect(result.allowed).toBe(false);
-
-    result = await limiter.consume("user1", new Date(150));
-    expect(result.allowed).toBe(true);
-  });
-
-  it("caps tokens at maximum", async () => {
-    limiter = new RateLimiter(5, 1, testStorageDir);
-
+  for (let i = 0; i < 10; i++) {
     await limiter.consume("user1", new Date(0));
+  }
 
-    const state = await limiter.getState("user1", new Date(2000));
-    expect(state.remainingTokens).toBe(5);
-  });
+  let result = await limiter.consume("user1", new Date(0));
+  expect(result.allowed).toBe(false);
 
-  it("gets state without consuming tokens", async () => {
-    await limiter.consume("user1");
-    const state1 = await limiter.getState("user1");
-    const state2 = await limiter.getState("user1");
+  result = await limiter.consume("user1", new Date(150));
+  expect(result.allowed).toBe(true);
+});
 
-    expect(state1.remainingTokens).toBe(state2.remainingTokens);
-    expect(state1.remainingTokens).toBe(9);
-  });
+it("caps tokens at maximum", async () => {
+  limiter = new RateLimiter(5, 1, testStorageDir);
 
-  it("clears all user data", async () => {
-    await limiter.consume("user1");
-    await limiter.consume("user2");
+  await limiter.consume("user1", new Date(0));
 
-    await limiter.clear();
+  const state = await limiter.getState("user1", new Date(2000));
+  expect(state.remainingTokens).toBe(5);
+});
 
-    const state = await limiter.getState("user1");
-    expect(state.remainingTokens).toBe(10);
-  });
+it("gets state without consuming tokens", async () => {
+  await limiter.consume("user1");
+  const state1 = await limiter.getState("user1");
+  const state2 = await limiter.getState("user1");
 
-  it("provides reset timestamp", async () => {
-    const result = await limiter.consume("user1", new Date(0));
+  expect(state1.remainingTokens).toBe(state2.remainingTokens);
+  expect(state1.remainingTokens).toBe(9);
+});
 
-    expect(result.resetAt.getTime()).toBe(3600 * 1000);
-  });
+it("clears all user data", async () => {
+  await limiter.consume("user1");
+  await limiter.consume("user2");
 
-  it("integration: shows token refill at 1 token/sec with successes and failures", async () => {
-    limiter = new RateLimiter(3, 3, testStorageDir);
+  await limiter.clear();
 
-    // t=0: Start with 3 tokens, consume 3
-    let result = await limiter.consume("user1", new Date(0));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(2);
+  const state = await limiter.getState("user1");
+  expect(state.remainingTokens).toBe(10);
+});
 
-    result = await limiter.consume("user1", new Date(0));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(1);
+it("provides reset timestamp", async () => {
+  const result = await limiter.consume("user1", new Date(0));
 
-    result = await limiter.consume("user1", new Date(0));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(0);
+  expect(result.resetAt.getTime()).toBe(3600 * 1000);
+});
 
-    // t=0: Out of tokens, should fail
-    result = await limiter.consume("user1", new Date(0));
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
+it("integration: shows token refill at 1 token/sec with successes and failures", async () => {
+  limiter = new RateLimiter(3, 3, testStorageDir);
 
-    // t=0.5s: Only 0.5 tokens refilled, still not enough
-    result = await limiter.consume("user1", new Date(500));
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
+  // t=0: Start with 3 tokens, consume 3
+  let result = await limiter.consume("user1", new Date(0));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(2);
 
-    // t=1s: 1 token refilled, should succeed
-    result = await limiter.consume("user1", new Date(1000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(0);
+  result = await limiter.consume("user1", new Date(0));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(1);
 
-    // t=1s: Immediately after, should fail
-    result = await limiter.consume("user1", new Date(1000));
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
+  result = await limiter.consume("user1", new Date(0));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=2.5s: 1.5 tokens refilled, should succeed (consuming 1)
-    result = await limiter.consume("user1", new Date(2500));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(0);
+  // t=0: Out of tokens, should fail
+  result = await limiter.consume("user1", new Date(0));
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=2.5s: Immediately after, should fail
-    result = await limiter.consume("user1", new Date(2500));
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
+  // t=0.5s: Only 0.5 tokens refilled, still not enough
+  result = await limiter.consume("user1", new Date(500));
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=5s: 2.5 tokens refilled since t=2.5s, should succeed
-    result = await limiter.consume("user1", new Date(5000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(2);
+  // t=1s: 1 token refilled, should succeed
+  result = await limiter.consume("user1", new Date(1000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=5s: Still have 2 tokens, should succeed
-    result = await limiter.consume("user1", new Date(5000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(1);
+  // t=1s: Immediately after, should fail
+  result = await limiter.consume("user1", new Date(1000));
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=5s: Still have 1 token, should succeed
-    result = await limiter.consume("user1", new Date(5000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(0);
+  // t=2.5s: 1.5 tokens refilled, should succeed (consuming 1)
+  result = await limiter.consume("user1", new Date(2500));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=5s: Now out of tokens, should fail
-    result = await limiter.consume("user1", new Date(5000));
-    expect(result.allowed).toBe(false);
-    expect(result.remainingTokens).toBe(0);
+  // t=2.5s: Immediately after, should fail
+  result = await limiter.consume("user1", new Date(2500));
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
 
-    // t=10s: Fully refilled to 3 tokens cap, consume 2
-    result = await limiter.consume("user1", new Date(10000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(2);
+  // t=5s: 2.5 tokens refilled since t=2.5s, should succeed
+  result = await limiter.consume("user1", new Date(5000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(2);
 
-    result = await limiter.consume("user1", new Date(10000));
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(1);
-  });
+  // t=5s: Still have 2 tokens, should succeed
+  result = await limiter.consume("user1", new Date(5000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(1);
 
-  it("persists rate limit data to disk", async () => {
-    const now = new Date(0);
-    await limiter.consume("user1", now);
-    await limiter.consume("user1", now);
-    await limiter.consume("user1", now);
+  // t=5s: Still have 1 token, should succeed
+  result = await limiter.consume("user1", new Date(5000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(0);
 
-    const filePath = path.join(testStorageDir, "user1.json");
-    const fileContent = await fs.readFile(filePath, "utf-8");
-    const data = JSON.parse(fileContent);
+  // t=5s: Now out of tokens, should fail
+  result = await limiter.consume("user1", new Date(5000));
+  expect(result.allowed).toBe(false);
+  expect(result.remainingTokens).toBe(0);
 
-    expect(data.userId).toBe("user1");
-    expect(data.tokens).toBe(7);
-    expect(data.lastRefill).toBe(0);
-  });
+  // t=10s: Fully refilled to 3 tokens cap, consume 2
+  result = await limiter.consume("user1", new Date(10000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(2);
 
-  it("loads rate limit data from disk on new instance", async () => {
-    await limiter.consume("user1");
-    await limiter.consume("user1");
-    await limiter.consume("user1");
+  result = await limiter.consume("user1", new Date(10000));
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(1);
+});
 
-    const limiter2 = new RateLimiter(10, 3600, testStorageDir);
-    const state = await limiter2.getState("user1");
+it("persists rate limit data to disk", async () => {
+  const now = new Date(0);
+  await limiter.consume("user1", now);
+  await limiter.consume("user1", now);
+  await limiter.consume("user1", now);
 
-    expect(state.remainingTokens).toBe(7);
-  });
+  const filePath = path.join(testStorageDir, "user1.json");
+  const fileContent = await fs.readFile(filePath, "utf-8");
+  const data = JSON.parse(fileContent);
 
-  it("handles corrupt data by treating as empty", async () => {
-    await fs.mkdir(testStorageDir, { recursive: true });
-    const filePath = path.join(testStorageDir, "user1.json");
-    await fs.writeFile(filePath, "invalid json{", "utf-8");
+  expect(data.userId).toBe("user1");
+  expect(data.tokens).toBe(7);
+  expect(data.lastRefill).toBe(0);
+});
 
-    const result = await limiter.consume("user1");
+it("loads rate limit data from disk on new instance", async () => {
+  await limiter.consume("user1");
+  await limiter.consume("user1");
+  await limiter.consume("user1");
 
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(9);
-  });
+  const limiter2 = new RateLimiter(10, 3600, testStorageDir);
+  const state = await limiter2.getState("user1");
 
-  it("handles invalid schema by treating as empty", async () => {
-    await fs.mkdir(testStorageDir, { recursive: true });
-    const filePath = path.join(testStorageDir, "user1.json");
-    await fs.writeFile(filePath, JSON.stringify({ invalid: "data" }), "utf-8");
+  expect(state.remainingTokens).toBe(7);
+});
 
-    const result = await limiter.consume("user1");
+it("handles corrupt data by treating as empty", async () => {
+  await fs.mkdir(testStorageDir, { recursive: true });
+  const filePath = path.join(testStorageDir, "user1.json");
+  await fs.writeFile(filePath, "invalid json{", "utf-8");
 
-    expect(result.allowed).toBe(true);
-    expect(result.remainingTokens).toBe(9);
-  });
+  const result = await limiter.consume("user1");
 
-  it("clears files on disk when clearing", async () => {
-    await limiter.consume("user1");
-    await limiter.consume("user2");
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(9);
+});
 
-    const file1Path = path.join(testStorageDir, "user1.json");
-    const file2Path = path.join(testStorageDir, "user2.json");
+it("handles invalid schema by treating as empty", async () => {
+  await fs.mkdir(testStorageDir, { recursive: true });
+  const filePath = path.join(testStorageDir, "user1.json");
+  await fs.writeFile(filePath, JSON.stringify({ invalid: "data" }), "utf-8");
 
-    expect(
-      await fs.access(file1Path).then(
-        () => true,
-        () => false,
-      ),
-    ).toBe(true);
-    expect(
-      await fs.access(file2Path).then(
-        () => true,
-        () => false,
-      ),
-    ).toBe(true);
+  const result = await limiter.consume("user1");
 
-    await limiter.clear();
+  expect(result.allowed).toBe(true);
+  expect(result.remainingTokens).toBe(9);
+});
 
-    expect(
-      await fs.access(file1Path).then(
-        () => true,
-        () => false,
-      ),
-    ).toBe(false);
-    expect(
-      await fs.access(file2Path).then(
-        () => true,
-        () => false,
-      ),
-    ).toBe(false);
-  });
+it("clears files on disk when clearing", async () => {
+  await limiter.consume("user1");
+  await limiter.consume("user2");
+
+  const file1Path = path.join(testStorageDir, "user1.json");
+  const file2Path = path.join(testStorageDir, "user2.json");
+
+  expect(
+    await fs.access(file1Path).then(
+      () => true,
+      () => false,
+    ),
+  ).toBe(true);
+  expect(
+    await fs.access(file2Path).then(
+      () => true,
+      () => false,
+    ),
+  ).toBe(true);
+
+  await limiter.clear();
+
+  expect(
+    await fs.access(file1Path).then(
+      () => true,
+      () => false,
+    ),
+  ).toBe(false);
+  expect(
+    await fs.access(file2Path).then(
+      () => true,
+      () => false,
+    ),
+  ).toBe(false);
 });

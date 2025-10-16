@@ -38,6 +38,7 @@ beforeEach(async () => {
     RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-webserver",
     SEARCH_MIN_CHARS: 3,
     SEARCH_THRESHOLD: 0.6,
+    SCAN_INTERVAL_MINS: 15,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
   };
@@ -71,7 +72,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await server.stop();
-  await indexer.stop();
+  indexer.stop();
   await rateLimiter.clear();
   await rm(tempDir, { recursive: true, force: true });
 });

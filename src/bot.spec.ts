@@ -32,6 +32,7 @@ beforeEach(() => {
     RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-bot",
     SEARCH_MIN_CHARS: 3,
     SEARCH_THRESHOLD: 0.6,
+    SCAN_INTERVAL_MINS: 15,
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
   };
@@ -69,8 +70,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await indexer.stop();
   await webServer.stop();
+  indexer.stop();
   await rateLimiter.clear();
 });
 
@@ -141,10 +142,6 @@ describe("search interaction", () => {
 
   beforeEach(async () => {
     await indexer.start();
-  });
-
-  afterEach(async () => {
-    await indexer.stop();
   });
 
   it("rejects search queries shorter than SEARCH_MIN_CHARS", async () => {
@@ -218,10 +215,6 @@ describe("button interaction", () => {
 
   beforeEach(async () => {
     await indexer.start();
-  });
-
-  afterEach(async () => {
-    await indexer.stop();
   });
 
   it("replies to unknown button interactions", async () => {

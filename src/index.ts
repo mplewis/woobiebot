@@ -18,6 +18,7 @@ async function main() {
     directory: config.FILES_DIRECTORY,
     extensions: config.FILE_EXTENSIONS,
     threshold: config.SEARCH_THRESHOLD,
+    scanIntervalMins: config.SCAN_INTERVAL_MINS,
   });
 
   await indexer.start();
@@ -64,7 +65,7 @@ async function main() {
     try {
       await bot.stop();
       await webServer.stop();
-      await indexer.stop();
+      indexer.stop();
       logger.info("Shutdown complete");
       process.exit(0);
     } catch (err) {

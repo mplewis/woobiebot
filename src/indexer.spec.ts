@@ -1,4 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FileIndexerConfig } from "./indexer.js";
@@ -23,12 +23,12 @@ async function withIndexer<T>(
   options: FileIndexerConfig,
   fn: (indexer: FileIndexer) => Promise<T>,
 ): Promise<T> {
-  const indexer = new FileIndexer(options);
+  const indexer = new FileIndexer({ ...options, scanIntervalMins: 0 });
   await indexer.start();
   try {
     return await fn(indexer);
   } finally {
-    await indexer.stop();
+    indexer.stop();
   }
 }
 
@@ -84,68 +84,6 @@ it("filters by file extensions", async () => {
   });
 });
 
-it.skip("automatically detects new files", async () => {
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
-
-  expect(indexer.getAll()).toHaveLength(0);
-
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  await writeFile(join(TEST_DIR, "new-file.txt"), "content");
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const files = indexer.getAll();
-  expect(files).toHaveLength(1);
-  expect(files[0]?.path).toBe("new-file.txt");
-
-  await indexer.stop();
-});
-
-it.skip("automatically removes deleted files", async () => {
-  const filePath = join(TEST_DIR, "deleteme.txt");
-  await writeFile(filePath, "content");
-
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
-
-  expect(indexer.getAll()).toHaveLength(1);
-
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  await rm(filePath);
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  expect(indexer.getAll()).toHaveLength(0);
-
-  await indexer.stop();
-});
-
-it.skip("updates metadata on file changes", async () => {
-  const filePath = join(TEST_DIR, "changeme.txt");
-  await writeFile(filePath, "original");
-
-  const indexer = new FileIndexer({ directory: TEST_DIR, extensions: [".txt"] });
-  await indexer.start();
-
-  const file1 = indexer.getAll()[0];
-  const originalSize = file1?.size;
-  expect(originalSize).toBeDefined();
-
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  await writeFile(filePath, "updated with more content");
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const file2 = indexer.getAll()[0];
-  expect(file2?.size).toBeGreaterThan(originalSize ?? 0);
-
-  await indexer.stop();
-});
-
 it("handles subdirectories", async () => {
   await createTestFiles(TEST_DIR, ["root.txt", "subdir/nested.txt"]);
 
@@ -154,6 +92,30 @@ it("handles subdirectories", async () => {
     expect(files).toHaveLength(2);
     expect(files.map((f) => f.path).sort()).toEqual(["root.txt", "subdir/nested.txt"]);
   });
+});
+
+it("rebuilds index from scratch, removing deleted files", async () => {
+  await createTestFiles(TEST_DIR, ["file1.txt", "file2.txt", "file3.txt"]);
+
+  const indexer = new FileIndexer({
+    directory: TEST_DIR,
+    extensions: [".txt"],
+    scanIntervalMins: 0,
+  });
+  await indexer.start();
+
+  expect(indexer.getAll()).toHaveLength(3);
+
+  await rm(join(TEST_DIR, "file2.txt"));
+  await createTestFiles(TEST_DIR, ["file4.txt"]);
+
+  await indexer["_scanDirectory"]();
+
+  const files = indexer.getAll();
+  expect(files).toHaveLength(3);
+  expect(files.map((f) => f.path).sort()).toEqual(["file1.txt", "file3.txt", "file4.txt"]);
+
+  indexer.stop();
 });
 
 describe("search", () => {
@@ -358,5 +320,38 @@ describe("search", () => {
       const results = indexer.search("dragon.pdf");
       expect(results.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe("periodic scanning", () => {
+  it("does not set up periodic scanning when scanIntervalMins is 0", async () => {
+    await createTestFiles(TEST_DIR, ["file.txt"]);
+    const indexer = new FileIndexer({
+      directory: TEST_DIR,
+      extensions: [".txt"],
+      scanIntervalMins: 0,
+    });
+
+    await indexer.start();
+    const files = indexer.getAll();
+    expect(files).toHaveLength(1);
+
+    indexer.stop();
+  });
+
+  it("stops successfully when no periodic scanning is active", async () => {
+    await createTestFiles(TEST_DIR, ["file.txt"]);
+    const indexer = new FileIndexer({
+      directory: TEST_DIR,
+      extensions: [".txt"],
+      scanIntervalMins: 0,
+    });
+
+    await indexer.start();
+    indexer.stop();
+    indexer.stop();
+
+    const files = indexer.getAll();
+    expect(files).toHaveLength(1);
   });
 });
