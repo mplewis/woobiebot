@@ -66,8 +66,8 @@ describe("formatSearchResults", () => {
     expect(result.content).toMatchInlineSnapshot(`
       "Found 2 file(s) matching "test":
 
-      - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`test1.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`test2.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 5 downloads remaining, refreshing <t:1705320000:R>."
@@ -98,8 +98,8 @@ describe("formatSearchResults", () => {
     expect(result.content).toMatchInlineSnapshot(`
       "Found 2 file(s) matching "test":
 
-      - [test1.txt](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [test2.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`test1.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`test2.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 1 download remaining, refreshing <t:1705320000:R>."
@@ -165,20 +165,46 @@ describe("formatSearchResults", () => {
     expect(result.content).toMatchInlineSnapshot(`
       "Found 10 file(s) matching "amigurumi":
 
-      - [patterns/amigurumi/amigurumi-octopus.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/amigurumi/amigurumi-bunny.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/amigurumi/amigurumi-cat.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/amigurumi/amigurumi-bear.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/amigurumi/amigurumi-dragon.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/granny-square-blanket.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/accessories/lacy-shawl.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/beginner-scarf.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/accessories/cozy-mittens.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
-      - [patterns/accessories/chunky-hat.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/amigurumi/amigurumi-octopus.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/amigurumi/amigurumi-bunny.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/amigurumi/amigurumi-cat.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/amigurumi/amigurumi-bear.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/amigurumi/amigurumi-dragon.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/granny-square-blanket.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/accessories/lacy-shawl.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/beginner-scarf.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/accessories/cozy-mittens.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [\`patterns/accessories/chunky-hat.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 5 downloads remaining, refreshing <t:1705320000:R>."
     `);
+
+    vi.useRealTimers();
+  });
+
+  it("wraps file paths in backticks to prevent Discord italic formatting", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
+
+    const resultsWithUnderscores: SearchResult[] = [
+      createSearchResult({ path: "patterns/baby_blanket_pattern.pdf", score: 0.1 }),
+      createSearchResult({ path: "crafts/knitting_for_beginners.pdf", score: 0.2 }),
+    ];
+
+    const result = formatSearchResults({
+      query: "pattern",
+      results: resultsWithUnderscores,
+      userId: "user123",
+      rateLimitResult: mockRateLimitResult,
+      urlExpiryMs: 600000,
+      generateDownloadUrl: mockGenerateDownloadUrl,
+    });
+
+    expect(result.content).toContain("`patterns/baby_blanket_pattern.pdf`");
+    expect(result.content).toContain("`crafts/knitting_for_beginners.pdf`");
+    expect(result.content).not.toContain("[patterns/baby_blanket_pattern.pdf]");
+    expect(result.content).not.toContain("[crafts/knitting_for_beginners.pdf]");
 
     vi.useRealTimers();
   });

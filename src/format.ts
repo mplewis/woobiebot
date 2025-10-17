@@ -123,7 +123,7 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 
   for (const result of sortedResults) {
     const downloadUrl = generateDownloadUrl(userId, result.file.id);
-    const link = `- [${result.file.path}](${downloadUrl})`;
+    const link = `- [\`${result.file.path}\`](${downloadUrl})`;
 
     const remaining = results.length - includedCount;
     const moreSuffix = `\n...and ${remaining} more`;
