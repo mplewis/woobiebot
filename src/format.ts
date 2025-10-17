@@ -43,6 +43,17 @@ export interface PartitionedResults {
 }
 
 /**
+ * Escape markdown special characters in a string to prevent markdown formatting.
+ * Escapes: \ ` * _ { } [ ] ( ) # + ! | < >
+ *
+ * @param text - The text to escape
+ * @returns The escaped text safe for use in markdown
+ */
+export function escapeMarkdown(text: string): string {
+  return text.replace(/([\\`*_{}[\]()#+!|<>])/g, "\\$1");
+}
+
+/**
  * Options for formatting search results into a Discord message.
  */
 export interface FormatSearchResultsOptions {
@@ -123,7 +134,8 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 
   for (const result of sortedResults) {
     const downloadUrl = generateDownloadUrl(userId, result.file.id);
-    const link = `- [${result.file.path}](${downloadUrl})`;
+    const escapedPath = escapeMarkdown(result.file.path);
+    const link = `- [${escapedPath}](${downloadUrl})`;
 
     const remaining = results.length - includedCount;
     const moreSuffix = `\n...and ${remaining} more`;

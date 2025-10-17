@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatAllResultsList, formatSearchResults, partitionResultsByScore } from "./format.js";
+import {
+  escapeMarkdown,
+  formatAllResultsList,
+  formatSearchResults,
+  partitionResultsByScore,
+} from "./format.js";
 import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
@@ -34,6 +39,46 @@ function createSearchResult(overrides: {
     score: overrides.score ?? 0.5,
   };
 }
+
+describe("escapeMarkdown", () => {
+  it("escapes square brackets", () => {
+    expect(escapeMarkdown("file[1].txt")).toBe("file\\[1\\].txt");
+  });
+
+  it("escapes parentheses", () => {
+    expect(escapeMarkdown("file(copy).txt")).toBe("file\\(copy\\).txt");
+  });
+
+  it("escapes asterisks", () => {
+    expect(escapeMarkdown("file*backup*.txt")).toBe("file\\*backup\\*.txt");
+  });
+
+  it("escapes underscores", () => {
+    expect(escapeMarkdown("my_file_name.txt")).toBe("my\\_file\\_name.txt");
+  });
+
+  it("escapes backslashes", () => {
+    expect(escapeMarkdown("path\\to\\file.txt")).toBe("path\\\\to\\\\file.txt");
+  });
+
+  it("escapes multiple special characters", () => {
+    expect(escapeMarkdown("file_[1]_(copy).txt")).toBe("file\\_\\[1\\]\\_\\(copy\\).txt");
+  });
+
+  it("escapes all markdown special characters", () => {
+    const input = "\\`*_{}[]()#+!|<>";
+    const expected = "\\\\\\`\\*\\_\\{\\}\\[\\]\\(\\)\\#\\+\\!\\|\\<\\>";
+    expect(escapeMarkdown(input)).toBe(expected);
+  });
+
+  it("does not escape hyphens or periods", () => {
+    expect(escapeMarkdown("file-name.txt")).toBe("file-name.txt");
+  });
+
+  it("handles empty string", () => {
+    expect(escapeMarkdown("")).toBe("");
+  });
+});
 
 describe("formatSearchResults", () => {
   const mockResults: SearchResult[] = [
@@ -175,6 +220,45 @@ describe("formatSearchResults", () => {
       - [patterns/beginner-scarf.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
       - [patterns/accessories/cozy-mittens.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
       - [patterns/accessories/chunky-hat.pdf](http://localhost:3000/download?userId=user123&fileId=file1)
+
+      Links expire <t:1705313400:R>.
+      You have 5 downloads remaining, refreshing <t:1705320000:R>."
+    `);
+
+    vi.useRealTimers();
+  });
+
+  it("escapes markdown special characters in filenames", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
+
+    const resultsWithSpecialChars: SearchResult[] = [
+      createSearchResult({ path: "file[1].txt", score: 0.1 }),
+      createSearchResult({ path: "my_file_name.txt", score: 0.2 }),
+      createSearchResult({ path: "file*backup*.txt", score: 0.3 }),
+      createSearchResult({ path: "doc(copy).pdf", score: 0.4 }),
+    ];
+
+    const result = formatSearchResults({
+      query: "file",
+      results: resultsWithSpecialChars,
+      userId: "user123",
+      rateLimitResult: mockRateLimitResult,
+      urlExpiryMs: 600000,
+      generateDownloadUrl: mockGenerateDownloadUrl,
+    });
+
+    expect(result.content).toContain("file\\[1\\].txt");
+    expect(result.content).toContain("my\\_file\\_name.txt");
+    expect(result.content).toContain("file\\*backup\\*.txt");
+    expect(result.content).toContain("doc\\(copy\\).pdf");
+    expect(result.content).toMatchInlineSnapshot(`
+      "Found 4 file(s) matching "file":
+
+      - [file\\[1\\].txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [my\\_file\\_name.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [file\\*backup\\*.txt](http://localhost:3000/download?userId=user123&fileId=file1)
+      - [doc\\(copy\\).pdf](http://localhost:3000/download?userId=user123&fileId=file1)
 
       Links expire <t:1705313400:R>.
       You have 5 downloads remaining, refreshing <t:1705320000:R>."
