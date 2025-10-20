@@ -70,8 +70,8 @@ export class Bot {
         } else if (interaction.isButton()) {
           await this.handleButton(interaction);
         }
-      } catch (error) {
-        this.logger.error({ error }, "Uncaught error in interaction handler");
+      } catch (err) {
+        this.logger.error({ err }, "Uncaught error in interaction handler");
       }
     });
   }

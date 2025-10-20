@@ -75,11 +75,11 @@ export class RateLimiter {
       }
 
       return validated.data;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         return null;
       }
-      logger.warn({ userId, error }, "Failed to load rate limit data");
+      logger.warn({ userId, err }, "Failed to load rate limit data");
       return null;
     }
   }
@@ -97,8 +97,8 @@ export class RateLimiter {
       const filePath = this.getUserFilePath(userLimit.userId);
       const data = JSON.stringify(userLimit);
       await fs.writeFile(filePath, data, "utf-8");
-    } catch (error) {
-      logger.error({ userId: userLimit.userId, error }, "Failed to save rate limit data");
+    } catch (err) {
+      logger.error({ userId: userLimit.userId, err }, "Failed to save rate limit data");
     }
   }
 
@@ -215,9 +215,9 @@ export class RateLimiter {
           .map((file) => fs.unlink(path.join(this.storageDir, file))),
       );
       logger.info("Cleared all rate limit data");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.error({ error }, "Failed to clear rate limit files");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        logger.error({ err }, "Failed to clear rate limit files");
       }
     }
   }

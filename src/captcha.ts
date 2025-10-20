@@ -109,8 +109,8 @@ export class CaptchaManager {
         solutions,
       );
       return result.valid;
-    } catch (error) {
-      logger.error({ error, userId, fileId }, "Failed to parse challenge or solution");
+    } catch (err) {
+      logger.error({ err, userId, fileId }, "Failed to parse challenge or solution");
       return false;
     }
   }
@@ -148,8 +148,8 @@ export class CaptchaManager {
 
       logger.warn({ userId, fileId, token }, "Invalid captcha solution");
       return { valid: false, reason: "Invalid solution" };
-    } catch (error) {
-      logger.error({ error, userId, fileId, token }, "Failed to verify captcha solution");
+    } catch (err) {
+      logger.error({ err, userId, fileId, token }, "Failed to verify captcha solution");
       return { valid: false, reason: "Verification failed" };
     }
   }

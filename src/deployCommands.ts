@@ -35,8 +35,8 @@ export async function deployCommands(
       });
       logger.info({ guildId }, "Successfully deployed guild commands");
     }
-  } catch (error) {
-    logger.error({ error }, "Failed to deploy commands");
-    throw error;
+  } catch (err) {
+    logger.error({ err }, "Failed to deploy commands");
+    throw err;
   }
 }

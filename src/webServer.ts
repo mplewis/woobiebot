@@ -49,19 +49,19 @@ export class WebServer {
    * Logs full error details server-side but only returns generic messages for 5xx errors.
    */
   private setupErrorHandler(): void {
-    this.app.setErrorHandler((error, _request, reply) => {
+    this.app.setErrorHandler((err, _request, reply) => {
       this.logger.error(
         {
-          err: error,
-          stack: error.stack,
-          statusCode: error.statusCode,
+          err,
+          stack: err.stack,
+          statusCode: err.statusCode,
         },
         "Unhandled error in request handler",
       );
 
-      const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+      const statusCode = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
       return reply.status(statusCode).send({
-        error: statusCode >= 500 ? "Internal server error" : error.message || "Bad request",
+        error: statusCode >= 500 ? "Internal server error" : err.message || "Bad request",
       });
     });
   }

@@ -253,8 +253,8 @@ export class FileIndexer {
         mtime: stats.mtime,
         mimeType,
       };
-    } catch (error) {
-      logger.error({ path: relativePath, error }, "Failed to index file");
+    } catch (err) {
+      logger.error({ path: relativePath, err }, "Failed to index file");
       return null;
     }
   }
