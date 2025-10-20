@@ -1,8 +1,9 @@
 import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
 import { config } from "./config.js";
+import { ErrorOutbox } from "./errorOutbox.js";
 import { FileIndexer } from "./indexer.js";
-import { logger } from "./logger.js";
+import { enableDiscordLogging, logger } from "./logger.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { WebServer } from "./webServer.js";
 
@@ -12,6 +13,14 @@ import { WebServer } from "./webServer.js";
  */
 async function main() {
   logger.info("Starting WoobieBot...");
+
+  let errorOutbox: ErrorOutbox | null = null;
+  if (config.DISCORD_ERROR_WEBHOOK_URL) {
+    errorOutbox = new ErrorOutbox(config.DISCORD_ERROR_WEBHOOK_URL, logger);
+    errorOutbox.start();
+    enableDiscordLogging(errorOutbox);
+    logger.info("Discord error logging enabled");
+  }
 
   // Initialize file indexer
   const indexer = new FileIndexer({
@@ -66,6 +75,10 @@ async function main() {
       await bot.stop();
       await webServer.stop();
       indexer.stop();
+      if (errorOutbox) {
+        await errorOutbox.flush();
+        await errorOutbox.stop();
+      }
       logger.info("Shutdown complete");
       process.exit(0);
     } catch (err) {

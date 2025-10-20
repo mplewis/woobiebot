@@ -38,6 +38,7 @@ const configSchema = z.object({
   SCAN_INTERVAL_MINS: z.coerce.number().nonnegative().default(15),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  DISCORD_ERROR_WEBHOOK_URL: z.string().url().optional(),
 });
 
 /**
