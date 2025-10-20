@@ -28,7 +28,7 @@ if (isDevelopment) {
  * Application-wide logger instance using Pino.
  * Configured with pretty-printing in development and JSON output in production.
  */
-export const logger = pino(loggerOptions);
+export const log = pino(loggerOptions);
 
 let discordOutbox: ErrorOutbox | null = null;
 
@@ -40,9 +40,9 @@ let discordOutbox: ErrorOutbox | null = null;
 export function enableDiscordLogging(outbox: ErrorOutbox): void {
   discordOutbox = outbox;
 
-  const originalError = logger.error.bind(logger) as (...args: unknown[]) => void;
+  const originalError = log.error.bind(log) as (...args: unknown[]) => void;
 
-  (logger as { error: (...args: unknown[]) => void }).error = (...args: unknown[]) => {
+  (log as { error: (...args: unknown[]) => void }).error = (...args: unknown[]) => {
     originalError(...args);
     if (discordOutbox) {
       discordOutbox.addFromPinoLog(args[0], args.slice(1));

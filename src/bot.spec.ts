@@ -4,7 +4,7 @@ import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import { FileIndexer } from "./indexer.js";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { WebServer } from "./webServer.js";
 
@@ -57,7 +57,7 @@ beforeEach(() => {
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   });
 
   bot = new Bot({
@@ -65,7 +65,7 @@ beforeEach(() => {
     indexer,
     rateLimiter,
     webServer,
-    logger,
+    log,
   });
 });
 
@@ -157,7 +157,7 @@ describe("search interaction", () => {
       indexer,
       rateLimiter,
       webServer,
-      logger,
+      log,
     });
 
     const mockInteraction = createMockInteraction("");

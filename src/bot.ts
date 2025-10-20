@@ -27,7 +27,7 @@ export interface BotDependencies {
   /** Web server for serving files */
   webServer: WebServer;
   /** Logger instance */
-  logger: Logger;
+  log: Logger;
 }
 
 /**
@@ -39,14 +39,14 @@ export class Bot {
   private readonly indexer: FileIndexer;
   private readonly rateLimiter: RateLimiter;
   private readonly webServer: WebServer;
-  private readonly logger: Logger;
+  private readonly log: Logger;
 
   constructor(deps: BotDependencies) {
     this.config = deps.config;
     this.indexer = deps.indexer;
     this.rateLimiter = deps.rateLimiter;
     this.webServer = deps.webServer;
-    this.logger = deps.logger.child({ component: "Bot" });
+    this.log = deps.log.child({ component: "Bot" });
 
     this.client = new Client({
       intents: [GatewayIntentBits.Guilds],
@@ -60,7 +60,7 @@ export class Bot {
    */
   private setupEventHandlers(): void {
     this.client.on(Events.ClientReady, () => {
-      this.logger.info({ username: this.client.user?.tag }, "Bot logged in");
+      this.log.info({ username: this.client.user?.tag }, "Bot logged in");
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
@@ -71,7 +71,7 @@ export class Bot {
           await this.handleButton(interaction);
         }
       } catch (err) {
-        this.logger.error({ err }, "Uncaught error in interaction handler");
+        this.log.error({ err }, "Uncaught error in interaction handler");
       }
     });
   }
@@ -108,7 +108,7 @@ export class Bot {
     query: string,
   ): Promise<void> {
     const userId = interaction.user.id;
-    this.logger.info({ userId, query }, "Search command");
+    this.log.info({ userId, query }, "Search command");
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -160,7 +160,7 @@ export class Bot {
 
     if (interaction.customId.startsWith("list_all:")) {
       const query = interaction.customId.slice("list_all:".length);
-      this.logger.info({ userId, query }, "List all results button");
+      this.log.info({ userId, query }, "List all results button");
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -176,7 +176,7 @@ export class Bot {
       const response = formatAllResultsList(query, results);
       await interaction.editReply(response);
     } else {
-      this.logger.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
+      this.log.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
       await interaction.reply({
         content: "Unknown button interaction.",
         flags: MessageFlags.Ephemeral,
@@ -194,13 +194,13 @@ export class Bot {
         this.config.DISCORD_TOKEN,
         this.config.DISCORD_CLIENT_ID,
         this.config.DISCORD_GUILD_IDS,
-        this.logger,
+        this.log,
       );
 
       await this.client.login(this.config.DISCORD_TOKEN);
-      this.logger.info("Bot started");
+      this.log.info("Bot started");
     } catch (err) {
-      this.logger.error({ err }, "Failed to start bot");
+      this.log.error({ err }, "Failed to start bot");
       throw err;
     }
   }
@@ -211,9 +211,9 @@ export class Bot {
   async stop(): Promise<void> {
     try {
       this.client.destroy();
-      this.logger.info("Bot stopped");
+      this.log.info("Bot stopped");
     } catch (err) {
-      this.logger.error({ err }, "Error stopping bot");
+      this.log.error({ err }, "Error stopping bot");
       throw err;
     }
   }

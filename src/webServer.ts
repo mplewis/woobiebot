@@ -16,7 +16,7 @@ export interface WebServerDependencies {
   captchaManager: CaptchaManager;
   rateLimiter: RateLimiter;
   indexer: FileIndexer;
-  logger: Logger;
+  log: Logger;
 }
 
 /**
@@ -27,11 +27,11 @@ export class WebServer {
   private readonly app: FastifyInstance;
   private readonly urlSigner: UrlSigner;
   private readonly config: Config;
-  private readonly logger: Logger;
+  private readonly log: Logger;
 
   constructor(deps: WebServerDependencies) {
     this.config = deps.config;
-    this.logger = deps.logger.child({ component: "WebServer" });
+    this.log = deps.log.child({ component: "WebServer" });
     this.urlSigner = new UrlSigner(deps.config.SIGNING_SECRET);
 
     this.app = Fastify({
@@ -50,7 +50,7 @@ export class WebServer {
    */
   private setupErrorHandler(): void {
     this.app.setErrorHandler((err, _request, reply) => {
-      this.logger.error(
+      this.log.error(
         {
           err,
           stack: err.stack,
@@ -82,7 +82,7 @@ export class WebServer {
       captchaManager: deps.captchaManager,
       rateLimiter: deps.rateLimiter,
       indexer: deps.indexer,
-      logger: this.logger,
+      log: this.log,
       baseUrl: this.config.WEB_SERVER_BASE_URL,
     });
   }
@@ -96,7 +96,7 @@ export class WebServer {
         port: this.config.WEB_SERVER_PORT,
         host: this.config.WEB_SERVER_HOST,
       });
-      this.logger.info(
+      this.log.info(
         {
           port: this.config.WEB_SERVER_PORT,
           host: this.config.WEB_SERVER_HOST,
@@ -104,7 +104,7 @@ export class WebServer {
         "Web server started",
       );
     } catch (err) {
-      this.logger.error({ err }, "Failed to start web server");
+      this.log.error({ err }, "Failed to start web server");
       throw err;
     }
   }
@@ -115,9 +115,9 @@ export class WebServer {
   async stop(): Promise<void> {
     try {
       await this.app.close();
-      this.logger.info("Web server stopped");
+      this.log.info("Web server stopped");
     } catch (err) {
-      this.logger.error({ err }, "Error stopping web server");
+      this.log.error({ err }, "Error stopping web server");
       throw err;
     }
   }

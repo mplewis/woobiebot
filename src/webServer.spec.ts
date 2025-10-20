@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import { FileIndexer } from "./indexer.js";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { solveCaptcha } from "./testUtils.js";
 import { WebServer, type WebServerDependencies } from "./webServer.js";
@@ -64,7 +64,7 @@ beforeEach(async () => {
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   };
 
   server = new WebServer(deps);
@@ -310,7 +310,7 @@ test("starts and stops server successfully", async () => {
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   });
 
   await expect(testServer.start()).resolves.toBeUndefined();
@@ -330,7 +330,7 @@ test("returns generic error message for 500 errors without exposing details", as
     captchaManager,
     rateLimiter,
     indexer: mockIndexer as unknown as FileIndexer,
-    logger,
+    log,
   });
 
   const userId = "user123";

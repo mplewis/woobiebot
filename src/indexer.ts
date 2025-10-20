@@ -4,7 +4,7 @@ import glob from "fast-glob";
 import Fuse from "fuse.js";
 import { lookup } from "mime-types";
 import { generateFileId } from "./fileId.js";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 import { parseQuery } from "./queryParser.js";
 
 /**
@@ -72,17 +72,14 @@ export class FileIndexer {
    * Start the indexer: scan directory, initialize search, and set up periodic rescanning.
    */
   async start(): Promise<void> {
-    logger.info(
-      { directory: this.directory, extensions: this.extensions },
-      "Starting file indexer",
-    );
+    log.info({ directory: this.directory, extensions: this.extensions }, "Starting file indexer");
     await this._scanDirectory();
     this._initializeSearch();
 
     if (this.scanIntervalMins > 0) {
       this._setupPeriodicScanning();
     }
-    logger.info({ fileCount: this.index.size }, "File indexer started");
+    log.info({ fileCount: this.index.size }, "File indexer started");
   }
 
   /**
@@ -92,7 +89,7 @@ export class FileIndexer {
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
-      logger.info("File indexer stopped");
+      log.info("File indexer stopped");
     }
   }
 
@@ -193,14 +190,14 @@ export class FileIndexer {
   private _setupPeriodicScanning(): void {
     const intervalMs = this.scanIntervalMins * 60 * 1000;
     this.scanInterval = setInterval(() => {
-      logger.info({ directory: this.directory }, "Rescanning directory");
+      log.info({ directory: this.directory }, "Rescanning directory");
       this._scanDirectory()
         .then(() => {
           this._updateSearch();
-          logger.info({ fileCount: this.index.size }, "Rescan complete");
+          log.info({ fileCount: this.index.size }, "Rescan complete");
         })
         .catch((err) => {
-          logger.error({ err }, "Error during rescan");
+          log.error({ err }, "Error during rescan");
         });
     }, intervalMs);
   }
@@ -242,7 +239,7 @@ export class FileIndexer {
       const name = basename(relativePath);
       const mimeType = lookup(relativePath) || "application/octet-stream";
 
-      logger.debug({ id, path: relativePath }, "Indexed file");
+      log.debug({ id, path: relativePath }, "Indexed file");
 
       return {
         id,
@@ -254,7 +251,7 @@ export class FileIndexer {
         mimeType,
       };
     } catch (err) {
-      logger.error({ path: relativePath, err }, "Failed to index file");
+      log.error({ path: relativePath, err }, "Failed to index file");
       return null;
     }
   }

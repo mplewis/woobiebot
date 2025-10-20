@@ -3,7 +3,7 @@ import { CaptchaManager } from "./captcha.js";
 import { config } from "./config.js";
 import { ErrorOutbox } from "./errorOutbox.js";
 import { FileIndexer } from "./indexer.js";
-import { enableDiscordLogging, logger } from "./logger.js";
+import { enableDiscordLogging, log } from "./logger.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { WebServer } from "./webServer.js";
 
@@ -12,14 +12,14 @@ import { WebServer } from "./webServer.js";
  * Initialize and start all services.
  */
 async function main() {
-  logger.info("Starting WoobieBot...");
+  log.info("Starting WoobieBot...");
 
   let errorOutbox: ErrorOutbox | null = null;
   if (config.DISCORD_ERROR_WEBHOOK_URL) {
-    errorOutbox = new ErrorOutbox(config.DISCORD_ERROR_WEBHOOK_URL, logger);
+    errorOutbox = new ErrorOutbox(config.DISCORD_ERROR_WEBHOOK_URL, log);
     errorOutbox.start();
     enableDiscordLogging(errorOutbox);
-    logger.info("Discord error logging enabled");
+    log.info("Discord error logging enabled");
   }
 
   // Initialize file indexer
@@ -49,7 +49,7 @@ async function main() {
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   });
 
   await webServer.start();
@@ -60,16 +60,16 @@ async function main() {
     indexer,
     rateLimiter,
     webServer,
-    logger,
+    log,
   });
 
   await bot.start();
 
-  logger.info("WoobieBot started successfully");
+  log.info("WoobieBot started successfully");
 
   // Handle graceful shutdown
   const shutdown = async (signal: string) => {
-    logger.info({ signal }, "Shutting down...");
+    log.info({ signal }, "Shutting down...");
 
     try {
       await bot.stop();
@@ -79,10 +79,10 @@ async function main() {
         await errorOutbox.flush();
         await errorOutbox.stop();
       }
-      logger.info("Shutdown complete");
+      log.info("Shutdown complete");
       process.exit(0);
     } catch (err) {
-      logger.error({ err }, "Error during shutdown");
+      log.error({ err }, "Error during shutdown");
       process.exit(1);
     }
   };
@@ -92,6 +92,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.fatal({ err }, "Fatal error during startup");
+  log.fatal({ err }, "Fatal error during startup");
   process.exit(1);
 });

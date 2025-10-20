@@ -12,7 +12,7 @@ export interface RoutesDependencies {
   captchaManager: CaptchaManager;
   rateLimiter: RateLimiter;
   indexer: FileIndexer;
-  logger: Logger;
+  log: Logger;
   baseUrl: string;
 }
 
@@ -20,7 +20,7 @@ export interface RoutesDependencies {
  * Register all HTTP routes for the web server.
  */
 export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): void {
-  const { urlSigner, captchaManager, rateLimiter, indexer, logger, baseUrl } = deps;
+  const { urlSigner, captchaManager, rateLimiter, indexer, log, baseUrl } = deps;
 
   /**
    * GET /download
@@ -31,7 +31,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const verified = urlSigner.verifyDownloadUrl(url);
 
     if (!verified) {
-      logger.warn({ url }, "Invalid or expired download URL");
+      log.warn({ url }, "Invalid or expired download URL");
       return reply.status(403).send({ error: "Invalid or expired download link" });
     }
 
@@ -40,7 +40,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     // Check if file exists
     const file = indexer.getById(fileId);
     if (!file) {
-      logger.warn({ fileId, userId }, "File not found");
+      log.warn({ fileId, userId }, "File not found");
       return reply.status(404).send({ error: "File not found" });
     }
 
@@ -91,32 +91,32 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     );
 
     if (!isValid) {
-      logger.warn({ userId, fileId }, "Invalid captcha solution");
+      log.warn({ userId, fileId }, "Invalid captcha solution");
       return reply.status(403).send({ error: "Invalid captcha solution" });
     }
 
     // Check rate limit
     const rateLimitResult = await rateLimiter.consume(userId);
     if (!rateLimitResult.allowed) {
-      logger.warn({ userId, fileId }, "Rate limit exceeded");
+      log.warn({ userId, fileId }, "Rate limit exceeded");
       return reply.status(429).send({ error: "Rate limit exceeded. Please try again later." });
     }
 
     // Get file info
     const file = indexer.getById(fileId);
     if (!file) {
-      logger.warn({ fileId, userId }, "File not found");
+      log.warn({ fileId, userId }, "File not found");
       return reply.status(404).send({ error: "File not found" });
     }
 
     // Check if file exists on disk
     if (!existsSync(file.absolutePath)) {
-      logger.error({ fileId, path: file.absolutePath }, "File exists in index but not on disk");
+      log.error({ fileId, path: file.absolutePath }, "File exists in index but not on disk");
       return reply.status(500).send({ error: "File temporarily unavailable" });
     }
 
     // Stream file to client
-    logger.info({ userId, fileId, filename: file.name }, "Serving file download");
+    log.info({ userId, fileId, filename: file.name }, "Serving file download");
 
     const stat = statSync(file.absolutePath);
     return reply

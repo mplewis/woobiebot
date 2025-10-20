@@ -97,18 +97,18 @@ export function extractMessageContextStack(obj: unknown, args: unknown[]): Extra
  */
 export class ErrorOutbox {
   private readonly webhookUrl: string;
-  private readonly logger: Logger;
+  private readonly log: Logger;
   private readonly entries: Map<string, ErrorEntry> = new Map();
   private flushInterval: NodeJS.Timeout | null = null;
 
   /**
    * Create a new ErrorOutbox instance.
    * @param webhookUrl - Discord webhook URL to send error logs to
-   * @param logger - Pino logger instance for internal logging
+   * @param log - Pino logger instance for internal logging
    */
-  constructor(webhookUrl: string, logger: Logger) {
+  constructor(webhookUrl: string, log: Logger) {
     this.webhookUrl = webhookUrl;
-    this.logger = logger.child({ component: "ErrorOutbox" });
+    this.log = log.child({ component: "ErrorOutbox" });
   }
 
   /**
@@ -121,11 +121,11 @@ export class ErrorOutbox {
 
     this.flushInterval = setInterval(() => {
       this.flush().catch((err) => {
-        this.logger.error({ err }, "Failed to flush error outbox");
+        this.log.error({ err }, "Failed to flush error outbox");
       });
     }, FLUSH_INTERVAL_MS);
 
-    this.logger.info("Error outbox started");
+    this.log.info("Error outbox started");
   }
 
   /**
@@ -138,7 +138,7 @@ export class ErrorOutbox {
     }
 
     await this.flush();
-    this.logger.info("Error outbox stopped");
+    this.log.info("Error outbox stopped");
   }
 
   /**
@@ -211,10 +211,7 @@ export class ErrorOutbox {
           successfulKeys.add(key);
         }
       } catch (err) {
-        this.logger.error(
-          { err, batchSize: batch.length },
-          "Failed to send error batch to Discord",
-        );
+        this.log.error({ err, batchSize: batch.length }, "Failed to send error batch to Discord");
       }
     }
 
