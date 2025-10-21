@@ -156,22 +156,22 @@ export class Bot {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = interaction.user.id;
 
-    if (interaction.customId.startsWith("list_all:")) {
-      const query = interaction.customId.slice("list_all:".length);
-      this.log.info({ userId, query }, "List all results button");
-
-      const results = this.indexer.search(query);
-      if (results.length === 0) {
-        await interaction.editReply({ content: `No files found matching "${query}".` });
-        return;
-      }
-
-      const response = formatAllResultsList(query, results);
-      await interaction.editReply(response);
-    } else {
+    if (!interaction.customId.startsWith("list_all:")) {
       this.log.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
       await interaction.editReply({ content: "Unknown button interaction." });
+      return;
     }
+    const query = interaction.customId.slice("list_all:".length);
+    this.log.info({ userId, query }, "List all results button");
+
+    const results = this.indexer.search(query);
+    if (results.length === 0) {
+      await interaction.editReply({ content: `No files found matching "${query}".` });
+      return;
+    }
+
+    const response = formatAllResultsList(query, results);
+    await interaction.editReply(response);
   }
 
   /**
