@@ -82,6 +82,8 @@ export class Bot {
    * @param interaction - The slash command interaction to handle
    */
   private async handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     switch (interaction.commandName) {
       case "search": {
         const query = interaction.options.getString("query", true);
@@ -89,10 +91,7 @@ export class Bot {
         break;
       }
       default: {
-        await interaction.reply({
-          content: "Unknown command.",
-          flags: MessageFlags.Ephemeral,
-        });
+        await interaction.editReply({ content: "Unknown command." });
       }
     }
   }
@@ -109,8 +108,6 @@ export class Bot {
   ): Promise<void> {
     const userId = interaction.user.id;
     this.log.info({ userId, query }, "Search command");
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (query.length < this.config.SEARCH_MIN_CHARS) {
       const s = this.config.SEARCH_MIN_CHARS === 1 ? "" : "s";
@@ -156,20 +153,16 @@ export class Bot {
    * @param interaction - The button interaction
    */
   private async handleButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = interaction.user.id;
 
     if (interaction.customId.startsWith("list_all:")) {
       const query = interaction.customId.slice("list_all:".length);
       this.log.info({ userId, query }, "List all results button");
 
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
       const results = this.indexer.search(query);
-
       if (results.length === 0) {
-        await interaction.editReply({
-          content: `No files found matching "${query}".`,
-        });
+        await interaction.editReply({ content: `No files found matching "${query}".` });
         return;
       }
 
@@ -177,10 +170,7 @@ export class Bot {
       await interaction.editReply(response);
     } else {
       this.log.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
-      await interaction.reply({
-        content: "Unknown button interaction.",
-        flags: MessageFlags.Ephemeral,
-      });
+      await interaction.editReply({ content: "Unknown button interaction." });
     }
   }
 
