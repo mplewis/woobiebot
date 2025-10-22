@@ -1,5 +1,5 @@
 import type { Logger } from "pino";
-import { FILTERED_DISCORD_ERROR_CODES } from "./errorFilters";
+import { FILTERED_DISCORD_ERROR_CODES } from "./errorFilters.js";
 
 /**
  * Maximum number of embeds allowed in a single Discord webhook message.
