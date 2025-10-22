@@ -208,6 +208,57 @@ describe("formatSearchResults", () => {
 
     vi.useRealTimers();
   });
+
+  it("truncates long query in button custom ID to respect Discord limit", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-15T10:00:00Z"));
+
+    const longQuery =
+      "path/to/very/long/filename/that/exceeds/the/discord/custom/id/limit/of/one/hundred/characters/example.pdf";
+    const manyResults: SearchResult[] = Array.from({ length: 50 }, (_, i) =>
+      createSearchResult({ path: `file-${i}.txt` }),
+    );
+
+    const result = formatSearchResults({
+      query: longQuery,
+      results: manyResults,
+      userId: "user123",
+      rateLimitResult: mockRateLimitResult,
+      urlExpiryMs: 600000,
+      generateDownloadUrl: mockGenerateDownloadUrl,
+    });
+
+    expect(result.components).toBeDefined();
+    expect(result.components).toHaveLength(1);
+
+    if (!result.components) {
+      throw new Error("Expected components to be defined");
+    }
+
+    const row = result.components[0];
+    if (!row) {
+      throw new Error("Expected action row to exist");
+    }
+
+    const button = row.components[0];
+    if (!button) {
+      throw new Error("Expected button to exist");
+    }
+
+    const buttonData = button.data as { custom_id?: string };
+    const customId = buttonData.custom_id;
+
+    expect(customId).toBeDefined();
+    if (!customId) {
+      throw new Error("Expected custom_id to be defined");
+    }
+
+    expect(customId.length).toBeLessThanOrEqual(100);
+    expect(customId.startsWith("list_all:")).toBe(true);
+    expect(customId).toBe(`list_all:${longQuery.slice(0, 91)}`);
+
+    vi.useRealTimers();
+  });
 });
 
 describe("formatAllResultsList", () => {

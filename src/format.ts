@@ -19,6 +19,11 @@ const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 const MESSAGE_LENGTH_SAFETY_FACTOR = 0.95;
 
 /**
+ * Maximum length for a Discord button custom ID in characters.
+ */
+const DISCORD_MAX_CUSTOM_ID_LENGTH = 100;
+
+/**
  * Threshold for high relevance results (top group).
  * Results with scores below this fraction of the score range are considered most relevant.
  */
@@ -97,6 +102,8 @@ export function partitionResultsByScore(results: SearchResult[]): PartitionedRes
 
 /**
  * Format search results into a Discord message with download links and quota information.
+ * If not all results fit in the message, a "List all" button is added with the query truncated
+ * to fit Discord's 100-character custom ID limit.
  *
  * @param options - Configuration for formatting the search results
  * @returns Formatted message object with content and optional button components
@@ -144,8 +151,12 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
 
   const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
   if (includedCount < results.length) {
+    const customIdPrefix = "list_all:";
+    const maxQueryLength = DISCORD_MAX_CUSTOM_ID_LENGTH - customIdPrefix.length;
+    const truncatedQuery = query.slice(0, maxQueryLength);
+
     const button = new ButtonBuilder()
-      .setCustomId(`list_all:${query}`)
+      .setCustomId(`${customIdPrefix}${truncatedQuery}`)
       .setLabel("List all search results")
       .setStyle(ButtonStyle.Secondary);
 
