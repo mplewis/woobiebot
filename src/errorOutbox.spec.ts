@@ -210,6 +210,147 @@ it("starts and stops periodic flushing", async () => {
   vi.useRealTimers();
 });
 
+describe("error filtering", () => {
+  it("filters errors with rawError nested in err object", async () => {
+    outbox.add("error", "Discord API error", {
+      err: {
+        rawError: { code: 10062, message: "Unknown interaction" },
+      },
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not filter errors with non-matching Discord error codes", async () => {
+    outbox.add("error", "Different error", {
+      rawError: { code: 50013, message: "Missing permissions" },
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const embed = body.embeds[0];
+    expect({
+      title: embed.title,
+      contextFields: embed.fields.map((f: { name: string }) => f.name),
+    }).toMatchInlineSnapshot(`
+      {
+        "contextFields": [
+          "Context",
+        ],
+        "title": "ERROR: Different error",
+      }
+    `);
+  });
+
+  it("does not filter errors without rawError", async () => {
+    outbox.add("error", "Normal error", { userId: "123" });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const embed = body.embeds[0];
+    expect({
+      title: embed.title,
+      contextFields: embed.fields.map((f: { name: string }) => f.name),
+    }).toMatchInlineSnapshot(`
+      {
+        "contextFields": [
+          "Context",
+        ],
+        "title": "ERROR: Normal error",
+      }
+    `);
+  });
+
+  it("does not filter errors without context", async () => {
+    outbox.add("error", "Simple error");
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const embed = body.embeds[0];
+    expect({
+      title: embed.title,
+      contextFields: embed.fields.map((f: { name: string }) => f.name),
+    }).toMatchInlineSnapshot(`
+      {
+        "contextFields": [],
+        "title": "ERROR: Simple error",
+      }
+    `);
+  });
+
+  it("filters multiple errors with matching codes", async () => {
+    outbox.add("error", "Unknown interaction 1", {
+      rawError: { code: 10062 },
+    });
+    outbox.add("error", "Unknown interaction 2", {
+      rawError: { code: 10062 },
+    });
+    outbox.add("error", "Valid error", { userId: "123" });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const titles = body.embeds.map((e: { title: string }) => e.title);
+    expect(titles).toMatchInlineSnapshot(`
+      [
+        "ERROR: Valid error",
+      ]
+    `);
+  });
+
+  it("handles malformed rawError gracefully", async () => {
+    outbox.add("error", "Malformed error", {
+      rawError: { code: "not a number" },
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const embed = body.embeds[0];
+    expect({
+      title: embed.title,
+      contextFields: embed.fields.map((f: { name: string }) => f.name),
+    }).toMatchInlineSnapshot(`
+      {
+        "contextFields": [
+          "Context",
+        ],
+        "title": "ERROR: Malformed error",
+      }
+    `);
+  });
+});
+
 describe("extractMessageContextStack", () => {
   it("extracts message from args when obj has userId", () => {
     const result = extractMessageContextStack({ userId: "123" }, ["User not found"]);

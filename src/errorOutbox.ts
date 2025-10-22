@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { FILTERED_DISCORD_ERROR_CODES } from "./errorFilters";
 
 /**
  * Maximum number of embeds allowed in a single Discord webhook message.
@@ -112,6 +113,54 @@ export class ErrorOutbox {
   }
 
   /**
+   * Check if an error should be filtered from Discord logging based on Discord API error codes.
+   * Errors are filtered if they contain a rawError.code that matches any code in FILTERED_DISCORD_ERROR_CODES.
+   *
+   * @param context - Optional context object that may contain error information
+   * @returns true if the error should be filtered (not sent to Discord), false otherwise
+   */
+  private shouldFilterError(context?: Record<string, unknown>): boolean {
+    if (!context) {
+      return false;
+    }
+
+    const rawErrorCode = this.extractDiscordErrorCode(context);
+    if (rawErrorCode === null) {
+      return false;
+    }
+
+    return FILTERED_DISCORD_ERROR_CODES.includes(rawErrorCode);
+  }
+
+  /**
+   * Extract Discord API error code from context object.
+   * Checks common locations where Discord error codes might appear.
+   *
+   * @param context - Context object that may contain error information
+   * @returns Discord error code if found, null otherwise
+   */
+  private extractDiscordErrorCode(context: Record<string, unknown>): number | null {
+    if (typeof context["rawError"] === "object" && context["rawError"] !== null) {
+      const rawError = context["rawError"] as Record<string, unknown>;
+      if (typeof rawError["code"] === "number") {
+        return rawError["code"];
+      }
+    }
+
+    if (typeof context["err"] === "object" && context["err"] !== null) {
+      const err = context["err"] as Record<string, unknown>;
+      if (typeof err["rawError"] === "object" && err["rawError"] !== null) {
+        const rawError = err["rawError"] as Record<string, unknown>;
+        if (typeof rawError["code"] === "number") {
+          return rawError["code"];
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Start the outbox flush interval.
    */
   start(): void {
@@ -143,6 +192,8 @@ export class ErrorOutbox {
 
   /**
    * Add an error to the outbox queue.
+   * Errors matching FILTERED_DISCORD_ERROR_CODES will be silently dropped.
+   *
    * @param level - Severity level of the log entry ("error" or "warn")
    * @param message - Human-readable error message
    * @param context - Optional additional context data to include with the error
@@ -154,6 +205,10 @@ export class ErrorOutbox {
     context?: Record<string, unknown>,
     stack?: string,
   ): void {
+    if (this.shouldFilterError(context)) {
+      return;
+    }
+
     const key = this.generateKey(level, message, context);
     const existing = this.entries.get(key);
 
