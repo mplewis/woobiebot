@@ -9,3 +9,12 @@
 export const FILTERED_DISCORD_ERROR_CODES = [
   10062, // Unknown interaction - occurs when interaction token expires
 ];
+
+/**
+ * System error codes that should be filtered from Discord logging.
+ *
+ * These are Node.js system-level errors that are expected and transient.
+ */
+export const FILTERED_SYSTEM_ERROR_CODES = [
+  "EAI_AGAIN", // DNS lookup failed temporarily - common network issue
+];

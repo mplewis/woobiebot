@@ -1,5 +1,5 @@
 import type { Logger } from "pino";
-import { FILTERED_DISCORD_ERROR_CODES } from "./errorFilters.js";
+import { FILTERED_DISCORD_ERROR_CODES, FILTERED_SYSTEM_ERROR_CODES } from "./errorFilters.js";
 
 /**
  * Maximum number of embeds allowed in a single Discord webhook message.
@@ -113,8 +113,9 @@ export class ErrorOutbox {
   }
 
   /**
-   * Check if an error should be filtered from Discord logging based on Discord API error codes.
-   * Errors are filtered if they contain a rawError.code that matches any code in FILTERED_DISCORD_ERROR_CODES.
+   * Check if an error should be filtered from Discord logging based on Discord API error codes or system error codes.
+   * Errors are filtered if they contain a rawError.code that matches any code in FILTERED_DISCORD_ERROR_CODES,
+   * or if they contain an err.code that matches any code in FILTERED_SYSTEM_ERROR_CODES.
    *
    * @param context - Optional context object that may contain error information
    * @returns true if the error should be filtered (not sent to Discord), false otherwise
@@ -125,11 +126,16 @@ export class ErrorOutbox {
     }
 
     const rawErrorCode = this.extractDiscordErrorCode(context);
-    if (rawErrorCode === null) {
-      return false;
+    if (rawErrorCode !== null && FILTERED_DISCORD_ERROR_CODES.includes(rawErrorCode)) {
+      return true;
     }
 
-    return FILTERED_DISCORD_ERROR_CODES.includes(rawErrorCode);
+    const systemErrorCode = this.extractSystemErrorCode(context);
+    if (systemErrorCode !== null && FILTERED_SYSTEM_ERROR_CODES.includes(systemErrorCode)) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -155,6 +161,28 @@ export class ErrorOutbox {
           return rawError["code"];
         }
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract system error code from context object.
+   * Checks common locations where Node.js system error codes might appear (e.g., EAI_AGAIN, ECONNREFUSED).
+   *
+   * @param context - Context object that may contain error information
+   * @returns System error code string if found, null otherwise
+   */
+  private extractSystemErrorCode(context: Record<string, unknown>): string | null {
+    if (typeof context["err"] === "object" && context["err"] !== null) {
+      const err = context["err"] as Record<string, unknown>;
+      if (typeof err["code"] === "string") {
+        return err["code"];
+      }
+    }
+
+    if (typeof context["code"] === "string") {
+      return context["code"];
     }
 
     return null;

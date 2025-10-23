@@ -349,6 +349,87 @@ describe("error filtering", () => {
       }
     `);
   });
+
+  it("filters system errors with EAI_AGAIN code in err object", async () => {
+    outbox.add("error", "DNS lookup failed", {
+      err: {
+        errno: -3001,
+        code: "EAI_AGAIN",
+        syscall: "getaddrinfo",
+        hostname: "discord.com",
+      },
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("filters system errors with EAI_AGAIN code at top level", async () => {
+    outbox.add("error", "DNS lookup failed", {
+      code: "EAI_AGAIN",
+      hostname: "discord.com",
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not filter system errors with non-matching codes", async () => {
+    outbox.add("error", "Connection refused", {
+      err: {
+        code: "ECONNREFUSED",
+        syscall: "connect",
+      },
+    });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const embed = body.embeds[0];
+    expect({
+      title: embed.title,
+      contextFields: embed.fields.map((f: { name: string }) => f.name),
+    }).toMatchInlineSnapshot(`
+      {
+        "contextFields": [
+          "Context",
+        ],
+        "title": "ERROR: Connection refused",
+      }
+    `);
+  });
+
+  it("filters both Discord and system errors independently", async () => {
+    outbox.add("error", "Discord error", {
+      rawError: { code: 10062 },
+    });
+    outbox.add("error", "System error", {
+      err: { code: "EAI_AGAIN" },
+    });
+    outbox.add("error", "Normal error", { userId: "123" });
+
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (!call) {
+      throw new Error("Expected fetch to be called");
+    }
+    const body = JSON.parse(call[1].body);
+    const titles = body.embeds.map((e: { title: string }) => e.title);
+    expect(titles).toMatchInlineSnapshot(`
+      [
+        "ERROR: Normal error",
+      ]
+    `);
+  });
 });
 
 describe("extractMessageContextStack", () => {
