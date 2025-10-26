@@ -115,44 +115,6 @@ function renderDirectoryTree(tree, container, level = 0, parentPath = []) {
         fileDiv.appendChild(deleteBtn);
         container.appendChild(fileDiv);
       }
-    } else {
-      const details = document.createElement('details');
-      details.open = level === 0;
-      details.style.paddingLeft = `${level * 20}px`;
-
-      const summary = document.createElement('summary');
-      summary.className = 'tree-dir';
-
-      const icon = document.createElement('span');
-      icon.className = 'tree-icon';
-      icon.textContent = '▶';
-
-      const folderName = document.createElement('span');
-      folderName.className = 'tree-dir-name';
-      folderName.textContent = key;
-
-      const uploadBtn = document.createElement('button');
-      uploadBtn.className = 'tree-upload-btn';
-      uploadBtn.textContent = '↑';
-      uploadBtn.title = 'Upload to this folder';
-      uploadBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const fullPath = [...parentPath, key].join('/');
-        openUploadBox(fullPath);
-      };
-
-      summary.appendChild(icon);
-      summary.appendChild(folderName);
-      summary.appendChild(uploadBtn);
-      details.appendChild(summary);
-
-      const childContainer = document.createElement('div');
-      renderDirectoryTree(value, childContainer, level + 1, [...parentPath, key]);
-      details.appendChild(childContainer);
-
-      container.appendChild(details);
-    }
   }
 }
 
