@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import { FileIndexer } from "./indexer.js";
@@ -77,7 +77,7 @@ afterEach(async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test("generates a valid signed URL", () => {
+it("generates a valid signed URL", () => {
   const url = server.generateDownloadUrl("user123", "file456");
 
   expect(url).toContain(mockConfig.WEB_SERVER_BASE_URL);
@@ -88,7 +88,7 @@ test("generates a valid signed URL", () => {
   expect(url).toContain("expiresAt=");
 });
 
-test("returns captcha page for valid signed URL", async () => {
+it("returns captcha page for valid signed URL", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -109,7 +109,7 @@ test("returns captcha page for valid signed URL", async () => {
   expect(response.body).toContain("Just a moment...");
 });
 
-test("returns 403 for invalid signature", async () => {
+it("returns 403 for invalid signature", async () => {
   const response = await server.getApp().inject({
     method: "GET",
     url: "/download?userId=user123&fileId=file456&expiresAt=999999999999&signature=invalid",
@@ -121,7 +121,7 @@ test("returns 403 for invalid signature", async () => {
   });
 });
 
-test("returns 404 for non-existent file", async () => {
+it("returns 404 for non-existent file", async () => {
   const url = server.generateDownloadUrl("user123", "nonexistent");
   const urlObj = new URL(url);
   const path = `${urlObj.pathname}${urlObj.search}`;
@@ -135,7 +135,7 @@ test("returns 404 for non-existent file", async () => {
   expect(response.json()).toEqual({ error: "File not found" });
 });
 
-test("returns 403 for expired URL", async () => {
+it("returns 403 for expired URL", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -161,7 +161,7 @@ test("returns 403 for expired URL", async () => {
   vi.useRealTimers();
 });
 
-test("downloads file with valid captcha solution", async () => {
+it("downloads file with valid captcha solution", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -193,7 +193,7 @@ test("downloads file with valid captcha solution", async () => {
   expect(response.body).toBe("Hello, World!");
 });
 
-test("returns 400 for missing fields", async () => {
+it("returns 400 for missing fields", async () => {
   const response = await server.getApp().inject({
     method: "POST",
     url: "/verify",
@@ -206,7 +206,7 @@ test("returns 400 for missing fields", async () => {
   expect(response.json()).toEqual({ error: "Missing required fields" });
 });
 
-test("returns 403 for invalid captcha solution", async () => {
+it("returns 403 for invalid captcha solution", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -233,7 +233,7 @@ test("returns 403 for invalid captcha solution", async () => {
   expect(response.json()).toEqual({ error: "Invalid captcha solution" });
 });
 
-test("returns 429 when rate limit exceeded", async () => {
+it("returns 429 when rate limit exceeded", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -269,7 +269,7 @@ test("returns 429 when rate limit exceeded", async () => {
   });
 });
 
-test("returns 404 for non-existent file", async () => {
+it("returns 404 for non-existent file", async () => {
   const userId = "user123";
   const fileId = "nonexistent";
   const challengeData = await captchaManager.generateChallenge(userId, fileId);
@@ -292,7 +292,7 @@ test("returns 404 for non-existent file", async () => {
   expect(response.json()).toEqual({ error: "File not found" });
 });
 
-test("returns health status", async () => {
+it("returns health status", async () => {
   const response = await server.getApp().inject({
     method: "GET",
     url: "/health",
@@ -304,7 +304,7 @@ test("returns health status", async () => {
   expect(body.timestamp).toBeTypeOf("number");
 });
 
-test("starts and stops server successfully", async () => {
+it("starts and stops server successfully", async () => {
   const testServer = new WebServer({
     config: { ...mockConfig, WEB_SERVER_PORT: 3002 },
     captchaManager,
@@ -317,7 +317,7 @@ test("starts and stops server successfully", async () => {
   await expect(testServer.stop()).resolves.toBeUndefined();
 });
 
-test("returns generic error message for 500 errors without exposing details", async () => {
+it("returns generic error message for 500 errors without exposing details", async () => {
   const mockIndexer = {
     ...indexer,
     getById: vi.fn().mockImplementation(() => {
