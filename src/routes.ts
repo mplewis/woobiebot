@@ -119,10 +119,16 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     log.info({ userId, fileId, filename: file.name }, "Serving file download");
 
     const stat = statSync(file.absolutePath);
+    const safeFilename = file.name.replace(/["\\]/g, "\\$&").replace(/[\r\n]/g, "");
+    const encodedFilename = encodeURIComponent(file.name);
+
     return reply
       .header("Content-Type", file.mimeType)
       .header("Content-Length", stat.size)
-      .header("Content-Disposition", `attachment; filename="${file.name}"`)
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+      )
       .send(createReadStream(file.absolutePath));
   });
 

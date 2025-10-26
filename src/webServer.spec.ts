@@ -193,6 +193,58 @@ it("downloads file with valid captcha solution", async () => {
   expect(response.body).toBe("Hello, World!");
 });
 
+it("sanitizes filenames with special characters in Content-Disposition header", async () => {
+  const specialFilename = 'test"file\nwith\rspecial\\chars.txt';
+  await writeFile(join(tempDir, specialFilename), "Special content");
+
+  await indexer.stop();
+  const newIndexer = new FileIndexer({ directory: tempDir, extensions: [".txt"] });
+  await newIndexer.start();
+
+  const files = newIndexer.getAll();
+  const specialFile = files.find((f) => f.name === specialFilename);
+  if (!specialFile) {
+    throw new Error("Special filename file not found in indexer");
+  }
+
+  await server.stop();
+  server = new WebServer({
+    config: mockConfig,
+    captchaManager,
+    rateLimiter,
+    indexer: newIndexer,
+    log,
+  });
+
+  const userId = "user123";
+  const challengeData = await captchaManager.generateChallenge(userId, specialFile.id);
+  const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+  const response = await server.getApp().inject({
+    method: "POST",
+    url: "/verify",
+    payload: {
+      userId,
+      fileId: specialFile.id,
+      token: challengeData.token,
+      challenge: JSON.stringify(challengeData.challenge),
+      signature: challengeData.signature,
+      solution: solution.join(","),
+    },
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  const disposition = response.headers["content-disposition"];
+  expect(disposition).toBeDefined();
+  expect(disposition).toContain("attachment");
+  expect(disposition).toContain('filename="test\\"filewithspecial\\\\chars.txt"');
+  expect(disposition).toContain("filename*=UTF-8''test%22file%0Awith%0Dspecial%5Cchars.txt");
+  expect(response.body).toBe("Special content");
+
+  indexer = newIndexer;
+});
+
 it("returns 400 for missing fields", async () => {
   const response = await server.getApp().inject({
     method: "POST",
