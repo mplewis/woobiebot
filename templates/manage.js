@@ -40,9 +40,55 @@ function renderDirectoryTree(tree, container, level = 0, parentPath = []) {
     return;
   }
 
-  for (const [key, value] of Object.entries(tree)) {
-    if (key === '_files') {
-      for (const file of value) {
+  const entries = Object.entries(tree);
+  const fileEntry = entries.find(([key]) => key === '_files');
+  const dirEntries = entries.filter(([key]) => key !== '_files').sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [key, value] of dirEntries) {
+    const details = document.createElement('details');
+    details.open = level === 0;
+    details.style.paddingLeft = `${level * 20}px`;
+
+    const summary = document.createElement('summary');
+    summary.className = 'tree-dir';
+
+    const icon = document.createElement('span');
+    icon.className = 'tree-icon';
+    icon.textContent = '▶';
+
+    const folderName = document.createElement('span');
+    folderName.className = 'tree-dir-name';
+    folderName.textContent = key;
+
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'tree-upload-btn';
+    uploadBtn.textContent = '↑';
+    uploadBtn.title = 'Upload to this folder';
+    uploadBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const fullPath = [...parentPath, key].join('/');
+      openUploadBox(fullPath);
+    };
+
+    summary.appendChild(icon);
+    summary.appendChild(folderName);
+    summary.appendChild(uploadBtn);
+
+    details.appendChild(summary);
+
+    const subContainer = document.createElement('div');
+    renderDirectoryTree(value, subContainer, level + 1, [...parentPath, key]);
+    details.appendChild(subContainer);
+
+    container.appendChild(details);
+  }
+
+  if (fileEntry) {
+    const [, files] = fileEntry;
+    const sortedFiles = [...files].sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const file of sortedFiles) {
         const fileDiv = document.createElement('div');
         fileDiv.className = 'tree-file';
         fileDiv.style.paddingLeft = `${level * 20}px`;
@@ -55,7 +101,18 @@ function renderDirectoryTree(tree, container, level = 0, parentPath = []) {
         link.className = 'tree-file-link';
         link.download = file.name;
 
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'tree-file-delete';
+        deleteBtn.textContent = '✕';
+        deleteBtn.title = 'Delete file';
+        deleteBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showDeleteModal(file.id, file.name);
+        };
+
         fileDiv.appendChild(link);
+        fileDiv.appendChild(deleteBtn);
         container.appendChild(fileDiv);
       }
     } else {
@@ -145,10 +202,89 @@ async function handleUpload(event) {
   }
 }
 
+let currentDeleteFileId = null;
+let currentDeleteFileName = null;
+
+function showDeleteModal(fileId, fileName) {
+  currentDeleteFileId = fileId;
+  currentDeleteFileName = fileName;
+
+  const modal = document.getElementById('delete-modal');
+  const filenameSpan = document.getElementById('delete-filename');
+  const confirmInput = document.getElementById('delete-confirm-input');
+  const confirmBtn = document.getElementById('delete-confirm-btn');
+
+  filenameSpan.textContent = fileName;
+  confirmInput.value = '';
+  confirmInput.placeholder = fileName;
+  confirmBtn.disabled = true;
+
+  modal.classList.add('show');
+  setTimeout(() => confirmInput.focus(), 100);
+}
+
+function hideDeleteModal() {
+  const modal = document.getElementById('delete-modal');
+  modal.classList.remove('show');
+  currentDeleteFileId = null;
+  currentDeleteFileName = null;
+}
+
+async function handleDeleteFile() {
+  if (!currentDeleteFileId) return;
+
+  const confirmBtn = document.getElementById('delete-confirm-btn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Deleting...';
+
+  try {
+    const deleteUrl = `/manage/delete/${currentDeleteFileId}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
+    const response = await fetch(deleteUrl, {
+      method: 'DELETE',
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      hideDeleteModal();
+      showStatus('File deleted successfully! Refreshing file list...', 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } else {
+      showStatus(`Delete failed: ${result.error || 'Unknown error'}`, 'error');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Delete File';
+    }
+  } catch (error) {
+    showStatus(`Delete failed: ${error.message}`, 'error');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Delete File';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('upload-form');
   form.addEventListener('submit', handleUpload);
 
   const fileTreeContainer = document.getElementById('file-tree');
   renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
+
+  const deleteConfirmInput = document.getElementById('delete-confirm-input');
+  const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+  const deleteCancelBtn = document.getElementById('delete-cancel-btn');
+
+  deleteConfirmInput.addEventListener('input', (e) => {
+    deleteConfirmBtn.disabled = e.target.value !== currentDeleteFileName;
+  });
+
+  deleteConfirmBtn.addEventListener('click', handleDeleteFile);
+  deleteCancelBtn.addEventListener('click', hideDeleteModal);
+
+  const deleteModal = document.getElementById('delete-modal');
+  deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) {
+      hideDeleteModal();
+    }
+  });
 });

@@ -224,6 +224,9 @@ details[open] > summary .tree-icon {
   color: #555;
   padding: 5px;
   margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tree-file-link {
@@ -232,6 +235,7 @@ details[open] > summary .tree-icon {
   padding: 2px 4px;
   border-radius: 3px;
   transition: background-color 0.3s ease, color 0.3s ease;
+  width: fit-content;
 }
 
 .tree-file-link:hover {
@@ -244,7 +248,132 @@ details[open] > summary .tree-icon {
   background-color: rgba(102, 126, 234, 0.2);
 }
 
+.tree-file-delete {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.3s ease;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+
+.tree-file:hover .tree-file-delete {
+  opacity: 1;
+}
+
+.tree-file-delete:hover {
+  background: #c82333;
+}
+
+.tree-file-delete:active {
+  background: #bd2130;
+}
+
 .tree-empty {
   color: #999;
   font-style: italic;
+}
+
+.delete-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.delete-modal.show {
+  display: flex;
+}
+
+.delete-modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.delete-modal-content h3 {
+  color: #dc3545;
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+}
+
+.delete-modal-content p {
+  color: #333;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.delete-modal-content .filename {
+  font-weight: bold;
+  color: #667eea;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+.delete-modal-content label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #555;
+}
+
+.delete-modal-content input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.delete-modal-content input[type="text"]:focus {
+  outline: none;
+  border-color: #dc3545;
+}
+
+.delete-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.delete-modal-buttons button {
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+.delete-modal-buttons .cancel-btn {
+  background: #6c757d;
+}
+
+.delete-modal-buttons .cancel-btn:hover {
+  background: #5a6268;
+}
+
+.delete-modal-buttons .confirm-delete-btn {
+  background: #dc3545;
+}
+
+.delete-modal-buttons .confirm-delete-btn:hover {
+  background: #c82333;
+}
+
+.delete-modal-buttons .confirm-delete-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
 }

@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
 import type { CaptchaManager } from "./captcha.js";
@@ -228,6 +228,72 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
       )
       .send(createReadStream(file.absolutePath));
+  });
+
+  /**
+   * DELETE /manage/delete/:fileId
+   * Delete a file for authenticated manage users.
+   */
+  app.delete("/manage/delete/:fileId", async (request, reply) => {
+    const { fileId } = request.params as { fileId: string };
+    const url = `${baseUrl}${request.url}`;
+    const urlObj = new URL(url);
+
+    const userId = urlObj.searchParams.get("userId");
+    const signature = urlObj.searchParams.get("signature");
+    const expiresAtStr = urlObj.searchParams.get("expiresAt");
+
+    if (!userId || !signature || !expiresAtStr) {
+      return reply.status(400).send({ error: "Missing authentication parameters" });
+    }
+
+    const expiresAt = Number.parseInt(expiresAtStr, 10);
+    if (Number.isNaN(expiresAt)) {
+      return reply.status(400).send({ error: "Invalid expiration timestamp" });
+    }
+
+    if (Date.now() > expiresAt) {
+      return reply.status(403).send({ error: "Authentication token has expired" });
+    }
+
+    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
+    const manageUrlObj = new URL(manageUrl);
+    const expectedSignature = manageUrlObj.searchParams.get("signature");
+
+    if (signature !== expectedSignature) {
+      log.warn({ userId, fileId }, "Invalid delete signature");
+      return reply.status(403).send({ error: "Invalid authentication signature" });
+    }
+
+    const file = indexer.getById(fileId);
+    if (!file) {
+      log.warn({ fileId, userId }, "File not found for deletion");
+      return reply.status(404).send({ error: "File not found" });
+    }
+
+    if (!existsSync(file.absolutePath)) {
+      log.error({ fileId, path: file.absolutePath }, "File exists in index but not on disk");
+      return reply.status(500).send({ error: "File temporarily unavailable" });
+    }
+
+    try {
+      const directory = dirname(file.absolutePath);
+      const filename = basename(file.absolutePath);
+      const hiddenPath = join(directory, `.${filename}`);
+
+      await rename(file.absolutePath, hiddenPath);
+      log.info(
+        { userId, fileId, filename: file.name, oldPath: file.absolutePath, newPath: hiddenPath },
+        "File hidden (fake deleted)",
+      );
+
+      await indexer.rescan();
+
+      return reply.send({ success: true, message: "File deleted successfully" });
+    } catch (error) {
+      log.error({ userId, fileId, error }, "Failed to delete file");
+      return reply.status(500).send({ error: "Failed to delete file" });
+    }
   });
 
   /**

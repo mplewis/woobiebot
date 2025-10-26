@@ -44,6 +44,20 @@
       </div>
     </div>
 
+    <div id="delete-modal" class="delete-modal">
+      <div class="delete-modal-content">
+        <h3>Delete File</h3>
+        <p>Are you sure you want to delete <span class="filename" id="delete-filename"></span>?</p>
+        <p>This action cannot be undone.</p>
+        <label for="delete-confirm-input">Type the filename to confirm:</label>
+        <input type="text" id="delete-confirm-input" placeholder="" autocomplete="off" />
+        <div class="delete-modal-buttons">
+          <button class="cancel-btn" id="delete-cancel-btn">Cancel</button>
+          <button class="confirm-delete-btn" id="delete-confirm-btn" disabled>Delete File</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       {{SCRIPT}}
     </script>
