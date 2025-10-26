@@ -212,6 +212,7 @@ export class FileIndexer {
       cwd: this.directory,
       absolute: false,
       onlyFiles: true,
+      dot: false,
     });
 
     const newIndex = new Map<string, FileMetadata>();
