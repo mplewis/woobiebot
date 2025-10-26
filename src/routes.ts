@@ -166,6 +166,71 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
   });
 
   /**
+   * GET /manage/download/:fileId
+   * Direct download for authenticated manage users (bypasses captcha).
+   */
+  app.get("/manage/download/:fileId", async (request, reply) => {
+    const { fileId } = request.params as { fileId: string };
+    const url = `${baseUrl}${request.url}`;
+    const urlObj = new URL(url);
+
+    const userId = urlObj.searchParams.get("userId");
+    const signature = urlObj.searchParams.get("signature");
+    const expiresAtStr = urlObj.searchParams.get("expiresAt");
+
+    if (!userId || !signature || !expiresAtStr) {
+      return reply.status(400).send({ error: "Missing authentication parameters" });
+    }
+
+    const expiresAt = Number.parseInt(expiresAtStr, 10);
+    if (Number.isNaN(expiresAt)) {
+      return reply.status(400).send({ error: "Invalid expiration timestamp" });
+    }
+
+    if (Date.now() > expiresAt) {
+      return reply.status(403).send({ error: "Authentication token has expired" });
+    }
+
+    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
+    const manageUrlObj = new URL(manageUrl);
+    const expectedSignature = manageUrlObj.searchParams.get("signature");
+
+    if (signature !== expectedSignature) {
+      log.warn({ userId, fileId }, "Invalid download signature");
+      return reply.status(403).send({ error: "Invalid authentication signature" });
+    }
+
+    const file = indexer.getById(fileId);
+    if (!file) {
+      log.warn({ fileId, userId }, "File not found for manage download");
+      return reply.status(404).send({ error: "File not found" });
+    }
+
+    if (!existsSync(file.absolutePath)) {
+      log.error(
+        { fileId, path: file.absolutePath },
+        "File exists in index but not on disk for manage download",
+      );
+      return reply.status(500).send({ error: "File temporarily unavailable" });
+    }
+
+    log.info({ userId, fileId, filename: file.name }, "Serving manage download");
+
+    const stat = statSync(file.absolutePath);
+    const safeFilename = file.name.replace(/["\\]/g, "\\$&").replace(/[\r\n]/g, "");
+    const encodedFilename = encodeURIComponent(file.name);
+
+    return reply
+      .header("Content-Type", file.mimeType)
+      .header("Content-Length", stat.size)
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+      )
+      .send(createReadStream(file.absolutePath));
+  });
+
+  /**
    * POST /upload
    * Handle file uploads to the managed directory.
    */

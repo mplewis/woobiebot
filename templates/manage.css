@@ -47,7 +47,7 @@ h2 {
 }
 
 .upload-section {
-  margin-top: 40px;
+  margin-top: 20px;
   padding: 20px;
   background: #f8f9fa;
   border-radius: 8px;
@@ -224,6 +224,24 @@ details[open] > summary .tree-icon {
   color: #555;
   padding: 5px;
   margin: 2px 0;
+}
+
+.tree-file-link {
+  color: #667eea;
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.tree-file-link:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+  color: #5568d3;
+  text-decoration: underline;
+}
+
+.tree-file-link:active {
+  background-color: rgba(102, 126, 234, 0.2);
 }
 
 .tree-empty {

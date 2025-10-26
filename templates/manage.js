@@ -46,7 +46,16 @@ function renderDirectoryTree(tree, container, level = 0, parentPath = []) {
         const fileDiv = document.createElement('div');
         fileDiv.className = 'tree-file';
         fileDiv.style.paddingLeft = `${level * 20}px`;
-        fileDiv.textContent = file.name;
+
+        const downloadUrl = `/manage/download/${file.id}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.textContent = file.name;
+        link.className = 'tree-file-link';
+        link.download = file.name;
+
+        fileDiv.appendChild(link);
         container.appendChild(fileDiv);
       }
     } else {
