@@ -1,4 +1,6 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
 import type { CaptchaManager } from "./captcha.js";
@@ -130,6 +132,112 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
       )
       .send(createReadStream(file.absolutePath));
+  });
+
+  /**
+   * GET /manage
+   * Display file management interface for authorized users.
+   */
+  app.get("/manage", async (request, reply) => {
+    const url = `${baseUrl}${request.url}`;
+    const verified = urlSigner.verifyManageUrl(url);
+
+    if (!verified) {
+      log.warn({ url }, "Invalid or expired manage URL");
+      return reply.status(403).send({ error: "Invalid or expired management link" });
+    }
+
+    const { userId, expiresAt } = verified;
+    const directoryTree = indexer.getDirectoryTree();
+
+    const urlObj = new URL(url);
+    const token = urlObj.searchParams.get("userId") || "";
+    const signature = urlObj.searchParams.get("signature") || "";
+
+    const html = templateLoader.renderManagePage({
+      userId,
+      token,
+      signature,
+      expiresAt,
+      directoryTree,
+    });
+
+    return reply.type("text/html").send(html);
+  });
+
+  /**
+   * POST /upload
+   * Handle file uploads to the managed directory.
+   */
+  app.post("/upload", async (request, reply) => {
+    try {
+      const data = await request.file();
+
+      if (!data) {
+        return reply.status(400).send({ error: "No file provided" });
+      }
+
+      const getFieldValue = (fieldName: string): string | undefined => {
+        const field = data.fields[fieldName];
+        if (!field) {
+          return undefined;
+        }
+        if (Array.isArray(field)) {
+          return undefined;
+        }
+        return field.type === "field" ? (field.value as string) : undefined;
+      };
+
+      const userId = getFieldValue("userId");
+      const token = getFieldValue("userId");
+      const signature = getFieldValue("signature");
+      const expiresAtStr = getFieldValue("expiresAt");
+      const targetDirectory = getFieldValue("directory") || "";
+
+      if (!userId || !token || !signature || !expiresAtStr) {
+        return reply.status(400).send({ error: "Missing authentication data" });
+      }
+
+      const expiresAt = Number.parseInt(expiresAtStr, 10);
+      if (Number.isNaN(expiresAt)) {
+        return reply.status(400).send({ error: "Invalid expiration timestamp" });
+      }
+
+      if (Date.now() > expiresAt) {
+        return reply.status(403).send({ error: "Authentication token has expired" });
+      }
+
+      const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
+      const urlObj = new URL(manageUrl);
+      const expectedSignature = urlObj.searchParams.get("signature");
+
+      if (signature !== expectedSignature) {
+        log.warn({ userId }, "Invalid upload signature");
+        return reply.status(403).send({ error: "Invalid authentication signature" });
+      }
+
+      const buffer = await data.toBuffer();
+      const sanitizedDir = targetDirectory.replace(/\.\./g, "").replace(/^\/+/, "");
+      const targetPath = join(indexer["directory"], sanitizedDir, data.filename);
+      const targetDir = dirname(targetPath);
+
+      await mkdir(targetDir, { recursive: true });
+      await writeFile(targetPath, buffer);
+
+      log.info({ userId, filename: data.filename, path: targetPath }, "File uploaded successfully");
+
+      await indexer.rescan();
+
+      return reply.send({
+        success: true,
+        message: "File uploaded successfully",
+        filename: data.filename,
+        path: sanitizedDir ? `${sanitizedDir}/${data.filename}` : data.filename,
+      });
+    } catch (err) {
+      log.error({ err }, "File upload failed");
+      return reply.status(500).send({ error: "File upload failed" });
+    }
   });
 
   /**

@@ -50,6 +50,33 @@ class TemplateLoader {
           .replace("{{FILE_ID}}", JSON.stringify(data.fileId)),
       );
   }
+
+  /**
+   * Render the file management page with the provided data.
+   */
+  renderManagePage(data: {
+    userId: string;
+    token: string;
+    signature: string;
+    expiresAt: number;
+    directoryTree: Record<string, unknown>;
+  }): string {
+    const html = this.load("manage.html");
+    const css = this.load("manage.css");
+    const script = this.load("manage.js");
+
+    return html
+      .replace("{{STYLES}}", css)
+      .replace(
+        "{{SCRIPT}}",
+        script
+          .replace("{{USER_ID}}", JSON.stringify(data.userId))
+          .replace("{{TOKEN}}", JSON.stringify(data.token))
+          .replace("{{SIGNATURE}}", JSON.stringify(data.signature))
+          .replace("{{EXPIRES_AT}}", JSON.stringify(data.expiresAt))
+          .replace("{{DIRECTORY_TREE}}", JSON.stringify(data.directoryTree)),
+      );
+  }
 }
 
 export const templateLoader = new TemplateLoader();

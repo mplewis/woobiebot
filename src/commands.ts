@@ -11,4 +11,7 @@ export const commands = [
     .addStringOption((option) =>
       option.setName("query").setDescription("Search term to find files").setRequired(true),
     ),
+  new SlashCommandBuilder()
+    .setName("manage")
+    .setDescription("Get a link to the file management interface"),
 ];

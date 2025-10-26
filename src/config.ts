@@ -29,6 +29,7 @@ const configSchema = z.object({
   WEB_SERVER_BASE_URL: z.string().url().default("http://localhost:3000"),
   SIGNING_SECRET: z.string().min(32, "Signing secret must be at least 32 characters"),
   URL_EXPIRY_SEC: z.coerce.number().int().positive().default(600),
+  MANAGE_URL_EXPIRY_SEC: z.coerce.number().int().positive().default(3600),
   CAPTCHA_CHALLENGE_COUNT: z.coerce.number().int().positive().default(50),
   CAPTCHA_DIFFICULTY: z.coerce.number().int().positive().default(4),
   DOWNLOADS_PER_HR: z.coerce.number().int().positive().default(10),

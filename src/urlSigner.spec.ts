@@ -136,3 +136,117 @@ describe("verifyDownloadUrl", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("signManageUrl", () => {
+  test("generates a valid signed management URL", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+
+    expect(url).toContain("https://example.com/manage");
+    expect(url).toContain("userId=user123");
+    expect(url).toContain("expiresAt=");
+    expect(url).toContain("signature=");
+    expect(url).not.toContain("fileId=");
+  });
+
+  test("includes correct expiration timestamp", () => {
+    const expiresInMs = 3600000;
+    const url = signer.signManageUrl(baseUrl, userId, expiresInMs);
+
+    const urlObj = new URL(url);
+    const expiresAt = Number.parseInt(urlObj.searchParams.get("expiresAt") ?? "", 10);
+    expect(expiresAt).toBe(Date.now() + expiresInMs);
+  });
+
+  test("generates different signatures for different users", () => {
+    const url1 = signer.signManageUrl(baseUrl, "user1", 3600000);
+    const url2 = signer.signManageUrl(baseUrl, "user2", 3600000);
+
+    const sig1 = new URL(url1).searchParams.get("signature");
+    const sig2 = new URL(url2).searchParams.get("signature");
+    expect(sig1).not.toBe(sig2);
+  });
+
+  test("generates different signatures from download URLs", () => {
+    const manageUrl = signer.signManageUrl(baseUrl, userId, 3600000);
+    const downloadUrl = signer.signDownloadUrl(baseUrl, userId, fileId, 3600000);
+
+    const manageSig = new URL(manageUrl).searchParams.get("signature");
+    const downloadSig = new URL(downloadUrl).searchParams.get("signature");
+    expect(manageSig).not.toBe(downloadSig);
+  });
+});
+
+describe("verifyManageUrl", () => {
+  test("verifies a valid signed management URL", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+    const result = signer.verifyManageUrl(url);
+
+    expect(result).not.toBeNull();
+    expect(result?.userId).toBe(userId);
+  });
+
+  test("rejects URL with invalid signature", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+    const tamperedUrl = url.replace(/signature=[^&]+/, "signature=invalid");
+
+    const result = signer.verifyManageUrl(tamperedUrl);
+    expect(result).toBeNull();
+  });
+
+  test("rejects URL with tampered userId", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+    const tamperedUrl = url.replace("userId=user123", "userId=hacker");
+
+    const result = signer.verifyManageUrl(tamperedUrl);
+    expect(result).toBeNull();
+  });
+
+  test("rejects expired URL", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+
+    vi.advanceTimersByTime(3600001);
+
+    const result = signer.verifyManageUrl(url);
+    expect(result).toBeNull();
+  });
+
+  test("accepts URL just before expiration", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+
+    vi.advanceTimersByTime(3599999);
+
+    const result = signer.verifyManageUrl(url);
+    expect(result).not.toBeNull();
+  });
+
+  test("rejects URL with missing parameters", () => {
+    const url = "https://example.com/manage?userId=user123";
+    const result = signer.verifyManageUrl(url);
+    expect(result).toBeNull();
+  });
+
+  test("rejects URL with invalid expiresAt format", () => {
+    const url = "https://example.com/manage?userId=user123&expiresAt=invalid&signature=abc";
+    const result = signer.verifyManageUrl(url);
+    expect(result).toBeNull();
+  });
+
+  test("rejects malformed URL", () => {
+    const result = signer.verifyManageUrl("not-a-url");
+    expect(result).toBeNull();
+  });
+
+  test("rejects URL signed with different secret", () => {
+    const url = signer.signManageUrl(baseUrl, userId, 3600000);
+
+    const differentSigner = new UrlSigner("different-secret");
+    const result = differentSigner.verifyManageUrl(url);
+    expect(result).toBeNull();
+  });
+
+  test("rejects download URL in verifyManageUrl", () => {
+    const url = signer.signDownloadUrl(baseUrl, userId, fileId, 3600000);
+    const result = signer.verifyManageUrl(url);
+    expect(result).toBeNull();
+  });
+});

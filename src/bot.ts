@@ -90,6 +90,10 @@ export class Bot {
         await this.handleSearch(interaction, query);
         break;
       }
+      case "manage": {
+        await this.handleManage(interaction);
+        break;
+      }
       default: {
         await interaction.editReply({ content: "Unknown command." });
       }
@@ -145,6 +149,25 @@ export class Bot {
     });
 
     await interaction.editReply(formatted);
+  }
+
+  /**
+   * Handle the manage command to generate a file management URL.
+   *
+   * @param interaction - The slash command interaction
+   */
+  private async handleManage(interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId = interaction.user.id;
+    this.log.info({ userId }, "Manage command");
+
+    const manageUrl = this.webServer.generateManageUrl(userId);
+    const expiryTimestamp = Math.floor(
+      (Date.now() + this.config.MANAGE_URL_EXPIRY_SEC * 1000) / 1000,
+    );
+
+    await interaction.editReply({
+      content: `Here's your file management link:\n${manageUrl}\n\nThis link expires <t:${expiryTimestamp}:R>.`,
+    });
   }
 
   /**

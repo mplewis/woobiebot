@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import fastifyFormBody from "@fastify/formbody";
+import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Logger } from "pino";
@@ -39,6 +40,7 @@ export class WebServer {
     });
 
     this.app.register(fastifyFormBody);
+    this.app.register(fastifyMultipart);
     this.setupErrorHandler();
     this.setupStaticFiles();
     this.setupRoutes(deps);
@@ -131,6 +133,17 @@ export class WebServer {
       userId,
       fileId,
       this.config.URL_EXPIRY_SEC * 1000,
+    );
+  }
+
+  /**
+   * Generate a signed management URL for a user.
+   */
+  generateManageUrl(userId: string): string {
+    return this.urlSigner.signManageUrl(
+      this.config.WEB_SERVER_BASE_URL,
+      userId,
+      this.config.MANAGE_URL_EXPIRY_SEC * 1000,
     );
   }
 

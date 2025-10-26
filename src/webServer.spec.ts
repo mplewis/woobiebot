@@ -32,6 +32,7 @@ beforeEach(async () => {
     WEB_SERVER_BASE_URL: "http://localhost:3001",
     SIGNING_SECRET: "test-signing-secret-key-must-be-long-enough",
     URL_EXPIRY_SEC: 600,
+    MANAGE_URL_EXPIRY_SEC: 3600,
     CAPTCHA_CHALLENGE_COUNT: 50,
     CAPTCHA_DIFFICULTY: 4,
     DOWNLOADS_PER_HR: 10,

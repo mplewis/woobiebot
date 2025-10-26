@@ -26,6 +26,7 @@ beforeEach(() => {
     WEB_SERVER_BASE_URL: "http://localhost:3000",
     SIGNING_SECRET: "test-secret-must-be-at-least-32-chars-long",
     URL_EXPIRY_SEC: 600,
+    MANAGE_URL_EXPIRY_SEC: 3600,
     CAPTCHA_CHALLENGE_COUNT: 3,
     CAPTCHA_DIFFICULTY: 2,
     DOWNLOADS_PER_HR: 10,
@@ -163,6 +164,71 @@ describe("search interaction", () => {
     const mockInteraction = createMockInteraction("");
     await callHandleCommand(botWithMinOne, mockInteraction);
     expect(mockInteraction.getCapturedReply()).toBe("Search query must be at least 1 character.");
+  });
+});
+
+describe("manage interaction", () => {
+  /**
+   * Mock Discord interaction object for testing manage commands
+   */
+  type MockInteraction = {
+    commandName: string;
+    user: { id: string };
+    options: {
+      getString: (name: string) => string | null;
+    };
+    deferReply: () => Promise<void>;
+    editReply: (options: { content: string }) => Promise<{ content: string }>;
+  };
+
+  /**
+   * Creates a mock Discord interaction for the manage command
+   */
+  const createMockInteraction = (): MockInteraction & { getCapturedReply: () => string } => {
+    let capturedReply = "";
+    return {
+      commandName: "manage",
+      user: { id: "test-user-123" },
+      options: {
+        getString: () => null,
+      },
+      deferReply: async () => {
+        /* intentionally empty */
+      },
+      editReply: async (options: { content: string }) => {
+        capturedReply = options.content;
+        return options;
+      },
+      getCapturedReply: () => capturedReply,
+    };
+  };
+
+  /**
+   * Invokes the bot's handleCommand method with a mock interaction
+   */
+  const callHandleCommand = async (botInstance: Bot, mockInteraction: MockInteraction) => {
+    const handleCommand = (
+      botInstance as unknown as { handleCommand: (interaction: unknown) => Promise<void> }
+    ).handleCommand;
+    await handleCommand.call(botInstance, mockInteraction);
+  };
+
+  beforeEach(async () => {
+    await indexer.start();
+  });
+
+  it("generates manage URL with correct expiry time", async () => {
+    const mockInteraction = createMockInteraction();
+    await callHandleCommand(bot, mockInteraction);
+    const reply = mockInteraction.getCapturedReply();
+
+    expect(reply).toContain("Here's your file management link:");
+    expect(reply).toContain("http://localhost:3000/manage");
+    expect(reply).toContain("This link expires <t:");
+    expect(reply).toContain(":R>.");
+    expect(reply).toContain("userId=test-user-123");
+    expect(reply).toContain("expiresAt=");
+    expect(reply).toContain("signature=");
   });
 });
 

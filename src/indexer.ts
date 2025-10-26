@@ -108,6 +108,52 @@ export class FileIndexer {
   }
 
   /**
+   * Manually trigger a directory rescan.
+   * Useful after uploading new files to immediately update the index.
+   */
+  async rescan(): Promise<void> {
+    log.info({ directory: this.directory }, "Manual rescan requested");
+    await this._scanDirectory();
+    this._updateSearch();
+    log.info({ fileCount: this.index.size }, "Manual rescan complete");
+  }
+
+  /**
+   * Get directory tree structure for file browser UI.
+   * Returns a hierarchical structure of directories and files.
+   */
+  getDirectoryTree(): Record<string, unknown> {
+    const tree: Record<string, unknown> = {};
+    const files = this.getAll();
+
+    for (const file of files) {
+      const parts = file.path.split("/");
+      let current = tree;
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLastPart = i === parts.length - 1;
+
+        if (isLastPart) {
+          if (!current["_files"]) {
+            current["_files"] = [];
+          }
+          (current["_files"] as FileMetadata[]).push(file);
+        } else {
+          if (part && !current[part]) {
+            current[part] = {};
+          }
+          if (part) {
+            current = current[part] as Record<string, unknown>;
+          }
+        }
+      }
+    }
+
+    return tree;
+  }
+
+  /**
    * Search files by path with support for exact matching via quoted strings.
    * Quoted phrases (e.g., "exact match") are matched literally,
    * while unquoted terms use fuzzy search.

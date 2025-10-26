@@ -1,0 +1,200 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) fixed;
+  min-height: 100vh;
+  padding: 20px;
+  color: #333;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+  color: #667eea;
+  margin-bottom: 10px;
+  font-size: 2.5rem;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+h2 {
+  color: #764ba2;
+  margin: 30px 0 20px 0;
+  font-size: 1.5rem;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.upload-section {
+  margin-bottom: 40px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #555;
+}
+
+input[type="text"],
+input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="file"]:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.status {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  display: none;
+}
+
+.status.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+  display: block;
+}
+
+.status.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  display: block;
+}
+
+.status.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  display: block;
+}
+
+#file-tree {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 6px;
+  min-height: 200px;
+}
+
+.tree-item {
+  margin: 5px 0;
+  padding: 5px;
+}
+
+details {
+  margin: 5px 0;
+}
+
+summary.tree-dir {
+  font-weight: 600;
+  color: #764ba2;
+  cursor: pointer;
+  padding: 5px;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+}
+
+summary.tree-dir::-webkit-details-marker {
+  display: none;
+}
+
+summary.tree-dir:hover {
+  background: rgba(118, 75, 162, 0.1);
+  border-radius: 4px;
+}
+
+.tree-icon {
+  font-size: 0.75em;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+details[open] > summary .tree-icon {
+  transform: rotate(90deg);
+}
+
+.tree-dir-name {
+  white-space: nowrap;
+}
+
+.tree-file {
+  color: #555;
+  padding: 5px;
+  margin: 2px 0;
+}
+
+.tree-empty {
+  color: #999;
+  font-style: italic;
+}
