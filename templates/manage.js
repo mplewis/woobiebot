@@ -7,7 +7,34 @@ const AUTH_DATA = {
 
 const DIRECTORY_TREE = {{DIRECTORY_TREE}};
 
-function renderDirectoryTree(tree, container, level = 0) {
+function buildDirectoryPath(tree, targetKey, currentPath = []) {
+  for (const [key, value] of Object.entries(tree)) {
+    if (key === '_files') continue;
+
+    if (key === targetKey) {
+      return [...currentPath, key].join('/');
+    }
+
+    const result = buildDirectoryPath(value, targetKey, [...currentPath, key]);
+    if (result) return result;
+  }
+  return null;
+}
+
+function openUploadBox(directoryPath) {
+  const directoryInput = document.getElementById('directory');
+
+  directoryInput.value = directoryPath;
+
+  const uploadSection = document.getElementById('upload-section');
+  uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  setTimeout(() => {
+    directoryInput.focus();
+  }, 500);
+}
+
+function renderDirectoryTree(tree, container, level = 0, parentPath = []) {
   if (!tree || Object.keys(tree).length === 0) {
     container.innerHTML = '<div class="tree-empty">No files indexed yet</div>';
     return;
@@ -38,12 +65,24 @@ function renderDirectoryTree(tree, container, level = 0) {
       folderName.className = 'tree-dir-name';
       folderName.textContent = key;
 
+      const uploadBtn = document.createElement('button');
+      uploadBtn.className = 'tree-upload-btn';
+      uploadBtn.textContent = '↑';
+      uploadBtn.title = 'Upload to this folder';
+      uploadBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const fullPath = [...parentPath, key].join('/');
+        openUploadBox(fullPath);
+      };
+
       summary.appendChild(icon);
       summary.appendChild(folderName);
+      summary.appendChild(uploadBtn);
       details.appendChild(summary);
 
       const childContainer = document.createElement('div');
-      renderDirectoryTree(value, childContainer, level + 1);
+      renderDirectoryTree(value, childContainer, level + 1, [...parentPath, key]);
       details.appendChild(childContainer);
 
       container.appendChild(details);

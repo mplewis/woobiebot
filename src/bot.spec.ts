@@ -222,7 +222,7 @@ describe("manage interaction", () => {
     await callHandleCommand(bot, mockInteraction);
     const reply = mockInteraction.getCapturedReply();
 
-    expect(reply).toContain("Here's your file management link:");
+    expect(reply).toContain("[Click here to manage files.]");
     expect(reply).toContain("http://localhost:3000/manage");
     expect(reply).toContain("This link expires <t:");
     expect(reply).toContain(":R>.");

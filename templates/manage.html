@@ -13,8 +13,13 @@
       <h1>File Management</h1>
       <p class="subtitle">Upload files to the server</p>
 
-      <div class="upload-section">
-        <h2>Upload File</h2>
+      <div class="directory-browser">
+        <h2>Current Files</h2>
+        <div id="file-tree"></div>
+      </div>
+
+      <div class="upload-section" id="upload-section">
+        <h2>Upload New File</h2>
         <form id="upload-form" enctype="multipart/form-data">
           <div class="form-group">
             <label for="directory">Target Directory (relative to root):</label>
@@ -36,15 +41,10 @@
             />
           </div>
 
-          <button type="submit" id="upload-btn">Upload File</button>
+          <button type="submit" id="upload-btn">Upload</button>
         </form>
 
         <div id="status" class="status"></div>
-      </div>
-
-      <div class="directory-browser">
-        <h2>Current Files</h2>
-        <div id="file-tree"></div>
       </div>
     </div>
 

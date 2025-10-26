@@ -166,7 +166,7 @@ export class Bot {
     );
 
     await interaction.editReply({
-      content: `Here's your file management link:\n${manageUrl}\n\nThis link expires <t:${expiryTimestamp}:R>.`,
+      content: `[Click here to manage files.](${manageUrl})\n\nThis link expires <t:${expiryTimestamp}:R>.`,
     });
   }
 
