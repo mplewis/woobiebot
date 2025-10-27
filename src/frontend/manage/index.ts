@@ -2,10 +2,10 @@ import type {
   AuthData,
   DeleteResponse,
   DirectoryTree,
-  FileMetadata,
   ManagePageData,
   UploadResponse,
 } from "../../shared/types.js";
+import { isTreeEmpty, sortTreeEntries } from "./tree.js";
 
 declare global {
   interface Window {
@@ -72,89 +72,84 @@ function renderDirectoryTree(
   level: number = 0,
   parentPath: string[] = [],
 ): void {
-  if (!tree || Object.keys(tree).length === 0) {
+  if (isTreeEmpty(tree)) {
     container.innerHTML = '<div class="tree-empty">No files indexed yet</div>';
     return;
   }
 
-  const entries = Object.entries(tree);
-  const fileEntry = entries.find(([key]) => key === "_files");
-  const dirEntries = entries
-    .filter(([key]) => key !== "_files")
-    .sort(([a], [b]) => a.localeCompare(b));
+  const entries = sortTreeEntries(tree);
 
-  for (const [key, value] of dirEntries) {
-    const details = document.createElement("details");
-    details.open = level === 0;
-    details.style.paddingLeft = `${level * 20}px`;
+  for (const entry of entries) {
+    if (entry.type === "directory") {
+      const { name, value } = entry;
+      const details = document.createElement("details");
+      details.open = level === 0;
+      details.style.paddingLeft = `${level * 20}px`;
 
-    const summary = document.createElement("summary");
-    summary.className = "tree-dir";
+      const summary = document.createElement("summary");
+      summary.className = "tree-dir";
 
-    const icon = document.createElement("span");
-    icon.className = "tree-icon";
-    icon.textContent = "▶";
+      const icon = document.createElement("span");
+      icon.className = "tree-icon";
+      icon.textContent = "▶";
 
-    const folderName = document.createElement("span");
-    folderName.className = "tree-dir-name";
-    folderName.textContent = key;
+      const folderName = document.createElement("span");
+      folderName.className = "tree-dir-name";
+      folderName.textContent = name;
 
-    const uploadBtn = document.createElement("button");
-    uploadBtn.className = "tree-upload-btn";
-    uploadBtn.textContent = "↑";
-    uploadBtn.title = "Upload to this folder";
-    uploadBtn.setAttribute("aria-label", `Upload to ${key} folder`);
-    uploadBtn.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const fullPath = [...parentPath, key].join("/");
-      openUploadBox(fullPath);
-    };
-
-    summary.appendChild(icon);
-    summary.appendChild(folderName);
-    summary.appendChild(uploadBtn);
-
-    details.appendChild(summary);
-
-    const subContainer = document.createElement("div");
-    renderDirectoryTree(value as DirectoryTree, subContainer, level + 1, [...parentPath, key]);
-    details.appendChild(subContainer);
-
-    container.appendChild(details);
-  }
-
-  if (fileEntry) {
-    const [, files] = fileEntry;
-    const sortedFiles = [...(files as FileMetadata[])].sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const file of sortedFiles) {
-      const fileDiv = document.createElement("div");
-      fileDiv.className = "tree-file";
-      fileDiv.style.paddingLeft = `${level * 20}px`;
-
-      const downloadUrl = `/manage/download/${file.id}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
-
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.textContent = file.name;
-      link.className = "tree-file-link";
-      link.download = file.name;
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "tree-file-delete";
-      deleteBtn.textContent = "✕";
-      deleteBtn.title = "Delete file";
-      deleteBtn.setAttribute("aria-label", `Delete ${file.name}`);
-      deleteBtn.onclick = (e) => {
+      const uploadBtn = document.createElement("button");
+      uploadBtn.className = "tree-upload-btn";
+      uploadBtn.textContent = "↑";
+      uploadBtn.title = "Upload to this folder";
+      uploadBtn.setAttribute("aria-label", `Upload to ${name} folder`);
+      uploadBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        showDeleteModal(file.id, file.name);
+        const fullPath = [...parentPath, name].join("/");
+        openUploadBox(fullPath);
       };
 
-      fileDiv.appendChild(link);
-      fileDiv.appendChild(deleteBtn);
-      container.appendChild(fileDiv);
+      summary.appendChild(icon);
+      summary.appendChild(folderName);
+      summary.appendChild(uploadBtn);
+
+      details.appendChild(summary);
+
+      const subContainer = document.createElement("div");
+      renderDirectoryTree(value, subContainer, level + 1, [...parentPath, name]);
+      details.appendChild(subContainer);
+
+      container.appendChild(details);
+    } else {
+      const { files } = entry;
+      for (const file of files) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "tree-file";
+        fileDiv.style.paddingLeft = `${level * 20}px`;
+
+        const downloadUrl = `/manage/download/${file.id}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
+
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.textContent = file.name;
+        link.className = "tree-file-link";
+        link.download = file.name;
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "tree-file-delete";
+        deleteBtn.textContent = "✕";
+        deleteBtn.title = "Delete file";
+        deleteBtn.setAttribute("aria-label", `Delete ${file.name}`);
+        deleteBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showDeleteModal(file.id, file.name);
+        };
+
+        fileDiv.appendChild(link);
+        fileDiv.appendChild(deleteBtn);
+        container.appendChild(fileDiv);
+      }
     }
   }
 }

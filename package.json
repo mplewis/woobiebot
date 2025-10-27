@@ -43,10 +43,13 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@evilmartians/lefthook": "^1.13.6",
+    "@peculiar/webcrypto": "^1.5.0",
+    "@types/jsdom": "^27.0.0",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^24.7.1",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
+    "jsdom": "^27.0.1",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
