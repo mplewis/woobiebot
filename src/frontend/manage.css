@@ -168,7 +168,7 @@ summary.tree-dir {
   font-weight: 600;
   color: #764ba2;
   cursor: pointer;
-  padding: 5px;
+  padding: 0;
   list-style: none;
   user-select: none;
   display: flex;
@@ -181,9 +181,17 @@ summary.tree-dir::-webkit-details-marker {
   display: none;
 }
 
-summary.tree-dir:hover {
-  background: rgba(118, 75, 162, 0.1);
+.tree-dir-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
   border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+summary.tree-dir:hover .tree-dir-content {
+  background: rgba(118, 75, 162, 0.1);
 }
 
 .tree-icon {
@@ -215,6 +223,15 @@ details[open] > summary .tree-icon {
   margin-left: 10px;
   font-weight: bold;
   flex-shrink: 0;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.3s ease,
+    transform 0.2s ease;
+}
+
+summary.tree-dir:hover .tree-upload-btn {
+  opacity: 1;
 }
 
 .tree-upload-btn:hover {
@@ -267,7 +284,8 @@ details[open] > summary .tree-icon {
   opacity: 0;
   transition:
     opacity 0.2s ease,
-    background-color 0.3s ease;
+    background-color 0.3s ease,
+    transform 0.2s ease;
   flex-shrink: 0;
   font-weight: bold;
 }
@@ -278,10 +296,12 @@ details[open] > summary .tree-icon {
 
 .tree-file-delete:hover {
   background: #c82333;
+  transform: translateY(-1px);
 }
 
 .tree-file-delete:active {
   background: #bd2130;
+  transform: translateY(0);
 }
 
 .tree-empty {

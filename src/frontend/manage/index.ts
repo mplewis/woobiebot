@@ -94,6 +94,9 @@ function renderDirectoryTree(
       const summary = document.createElement("summary");
       summary.className = "tree-dir";
 
+      const folderContent = document.createElement("span");
+      folderContent.className = "tree-dir-content";
+
       const icon = document.createElement("span");
       icon.className = "tree-icon";
       icon.textContent = "▶";
@@ -114,8 +117,9 @@ function renderDirectoryTree(
         openUploadBox(fullPath);
       };
 
-      summary.appendChild(icon);
-      summary.appendChild(folderName);
+      folderContent.appendChild(icon);
+      folderContent.appendChild(folderName);
+      summary.appendChild(folderContent);
       summary.appendChild(uploadBtn);
 
       details.appendChild(summary);
@@ -204,10 +208,7 @@ async function handleUpload(event: Event): Promise<void> {
     if (response.ok) {
       showStatus("File uploaded successfully! Refreshing file list...", "success");
       form.reset();
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      window.location.reload();
     } else {
       showStatus(`Upload failed: ${result.error || "Unknown error"}`, "error");
       uploadBtn.disabled = false;
@@ -259,6 +260,7 @@ function hideDeleteModal(): void {
 /**
  * Handles the confirmed deletion of a file.
  * Sends a DELETE request to the server and refreshes the page on success.
+ * Keeps the modal open and disabled during the deletion and refresh process.
  */
 async function handleDeleteFile(): Promise<void> {
   if (!currentDeleteFileId) {
@@ -266,7 +268,12 @@ async function handleDeleteFile(): Promise<void> {
   }
 
   const confirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
+  const cancelBtn = document.getElementById("delete-cancel-btn") as HTMLButtonElement;
+  const confirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
+
   confirmBtn.disabled = true;
+  cancelBtn.disabled = true;
+  confirmInput.disabled = true;
   confirmBtn.textContent = "Deleting...";
 
   try {
@@ -278,14 +285,14 @@ async function handleDeleteFile(): Promise<void> {
     const result = (await response.json()) as DeleteResponse;
 
     if (response.ok) {
-      hideDeleteModal();
+      confirmBtn.textContent = "Refreshing...";
       showStatus("File deleted successfully! Refreshing file list...", "success");
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      window.location.reload();
     } else {
       showStatus(`Delete failed: ${result.error || "Unknown error"}`, "error");
       confirmBtn.disabled = false;
+      cancelBtn.disabled = false;
+      confirmInput.disabled = false;
       confirmBtn.textContent = "Delete File";
     }
   } catch (error) {
@@ -294,6 +301,8 @@ async function handleDeleteFile(): Promise<void> {
       "error",
     );
     confirmBtn.disabled = false;
+    cancelBtn.disabled = false;
+    confirmInput.disabled = false;
     confirmBtn.textContent = "Delete File";
   }
 }

@@ -25,7 +25,6 @@ if (!globalThis.crypto) {
  * Mock fetch globally to prevent network requests in tests.
  * Individual tests can override this mock with vi.mocked(fetch).mockResolvedValue(...).
  */
-// biome-ignore lint/suspicious/noExplicitAny: Required for compatibility with global fetch type
 globalThis.fetch = vi.fn(() =>
   Promise.reject(new Error("Network requests not allowed in tests")),
-) as any;
+) as typeof fetch;
