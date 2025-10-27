@@ -108,7 +108,8 @@ it("returns captcha page for valid signed URL", async () => {
 
   expect(response.statusCode).toBe(200);
   expect(response.headers["content-type"]).toContain("text/html");
-  expect(response.body).toContain("Just a moment...");
+  expect(response.body).toContain("<!doctype html>");
+  expect(response.body).toContain("/public/assets/captcha-"); // Check for hashed filename
 });
 
 it("returns 403 for invalid signature", async () => {

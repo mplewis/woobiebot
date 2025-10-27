@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
@@ -15,7 +15,6 @@ import {
   type VerifyRequest,
   VerifyRequestSchema,
 } from "./shared/types.js";
-import { templateLoader } from "./templateLoader.js";
 import type { UrlSigner } from "./urlSigner.js";
 
 /**
@@ -38,7 +37,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
 
   /**
    * GET /download
-   * Display captcha page for verified download URLs.
+   * Serve captcha page for verified download URLs.
    */
   app.get("/download", async (request, reply) => {
     const url = `${baseUrl}${request.url}`;
@@ -49,7 +48,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(403).send({ error: "Invalid or expired download link" });
     }
 
-    const { userId, fileId, expiresAt } = verified;
+    const { userId, fileId } = verified;
 
     // Check if file exists
     const file = indexer.getById(fileId);
@@ -58,21 +57,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(404).send({ error: "File not found" });
     }
 
-    // Generate a token for this download session
-    const token = Math.random().toString(36).substring(2, 15);
-
-    // Get the signature from the original download URL
-    const urlObj = new URL(url);
-    const signature = urlObj.searchParams.get("signature") || "";
-
-    // Render captcha page with API parameters in URL
-    const html = templateLoader.renderCaptchaPage({
-      userId,
-      fileId,
-      token,
-      signature,
-      expiresAt: expiresAt.toString(),
-    });
+    // Serve the pre-processed static HTML file
+    // The frontend will read query parameters from window.location.search
+    const htmlPath = join(process.cwd(), "dist/public/captcha.html");
+    const html = readFileSync(htmlPath, "utf-8");
 
     return reply.type("text/html").send(html);
   });
@@ -149,7 +137,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
 
   /**
    * GET /manage
-   * Display file management interface for authorized users.
+   * Serve file management interface for authorized users.
    */
   app.get("/manage", async (request, reply) => {
     const url = `${baseUrl}${request.url}`;
@@ -160,17 +148,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(403).send({ error: "Invalid or expired management link" });
     }
 
-    const { userId, expiresAt } = verified;
-
-    const urlObj = new URL(url);
-    const signature = urlObj.searchParams.get("signature") || "";
-
-    // Render manage page with API parameters in URL
-    const html = templateLoader.renderManagePage({
-      userId,
-      signature,
-      expiresAt: expiresAt.toString(),
-    });
+    // Serve the pre-processed static HTML file
+    // The frontend will read query parameters from window.location.search
+    const htmlPath = join(process.cwd(), "dist/public/manage.html");
+    const html = readFileSync(htmlPath, "utf-8");
 
     return reply.type("text/html").send(html);
   });

@@ -4,9 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>File Management - WoobieBot</title>
-    <style>
-      {{STYLES}}
-    </style>
+    <link rel="stylesheet" href="/public/manage.css" />
   </head>
   <body>
     <div class="container">
@@ -29,12 +27,7 @@
 
           <div class="form-group">
             <label for="file">Select File:</label>
-            <input
-              type="file"
-              id="file"
-              name="file"
-              required
-            />
+            <input type="file" id="file" name="file" required />
           </div>
 
           <button type="submit" id="upload-btn">Upload</button>
@@ -58,6 +51,6 @@
       </div>
     </div>
 
-    <script type="module" src="{{SCRIPT_SRC}}" data-api-params="{{API_PARAMS}}"></script>
+    <script type="module" src="{{MANAGE_SCRIPT}}"></script>
   </body>
 </html>

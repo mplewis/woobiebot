@@ -8,15 +8,10 @@ import type {
 import { isTreeEmpty, sortTreeEntries } from "./tree.js";
 
 /**
- * Fetches manage page data from the API using parameters provided by the server.
+ * Fetches manage page data from the API using parameters from the URL query string.
  */
 async function fetchManageData(): Promise<ManagePageData> {
-  const scriptTag = document.querySelector<HTMLScriptElement>("script[data-api-params]");
-  if (!scriptTag || !scriptTag.dataset.apiParams) {
-    throw new Error("API parameters not found");
-  }
-
-  const params = new URLSearchParams(scriptTag.dataset.apiParams);
+  const params = new URLSearchParams(window.location.search);
   const response = await fetch(`/api/manage-data?${params.toString()}`);
 
   if (!response.ok) {
