@@ -14,7 +14,7 @@ import { commands } from "./commands.js";
 export async function deployCommands(
   token: string,
   clientId: string,
-  guildIds: string[],
+  guildIds: readonly string[],
   log: Logger,
 ): Promise<void> {
   try {

@@ -41,7 +41,7 @@ export interface FileIndexerConfig {
   /** Directory to index files from */
   directory: string;
   /** File extensions to include in the index */
-  extensions: string[];
+  extensions: readonly string[];
   /** Fuzzy search threshold (0-1, higher = more fuzzy) */
   threshold?: number;
   /** Interval in minutes to rescan the directory (0 to disable) */
@@ -57,7 +57,7 @@ export class FileIndexer {
   private fuse: Fuse<FileMetadata> | null = null;
   private scanInterval: NodeJS.Timeout | null = null;
   private readonly directory: string;
-  private readonly extensions: string[];
+  private readonly extensions: readonly string[];
   private readonly threshold: number;
   private readonly scanIntervalMins: number;
 

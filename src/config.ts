@@ -18,12 +18,14 @@ const configSchema = z.object({
             .map((id) => id.trim())
             .filter((id) => id.length > 0)
         : [],
-    ),
+    )
+    .readonly(),
   FILES_DIRECTORY: z.string().default("./files"),
   FILE_EXTENSIONS: z
     .string()
     .default("pdf,txt,doc,docx,zip,tar,gz")
-    .transform((val) => val.split(",").map((ext) => `.${ext.trim().replace(/^\./, "")}`)),
+    .transform((val) => val.split(",").map((ext) => `.${ext.trim().replace(/^\./, "")}`))
+    .readonly(),
   WEB_SERVER_PORT: z.coerce.number().int().positive().default(3000),
   WEB_SERVER_HOST: z.string().default("0.0.0.0"),
   WEB_SERVER_BASE_URL: z.string().url().default("http://localhost:3000"),

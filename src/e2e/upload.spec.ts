@@ -1,20 +1,9 @@
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { CaptchaManager } from "../captcha.js";
-import type { Config } from "../config.js";
-import { FileIndexer } from "../indexer.js";
-import { log } from "../logger.js";
-import { RateLimiter } from "../rateLimiter.js";
-import { WebServer, type WebServerDependencies } from "../webServer.js";
+import { createE2ETestContext, type E2ETestContext } from "./testHelpers.js";
 
-let server: WebServer;
-let tempDir: string;
-let indexer: FileIndexer;
-let captchaManager: CaptchaManager;
-let rateLimiter: RateLimiter;
-let mockConfig: Config;
+let ctx: E2ETestContext;
 
 /**
  * Creates a multipart form data payload for upload testing.
@@ -53,69 +42,16 @@ function createMultipartFormData(
 }
 
 beforeEach(async () => {
-  tempDir = await mkdtemp(join(tmpdir(), "upload-test-"));
-
-  mockConfig = {
-    DISCORD_TOKEN: "test_token",
-    DISCORD_CLIENT_ID: "test_client_id",
-    DISCORD_GUILD_IDS: [],
-    FILES_DIRECTORY: tempDir,
-    FILE_EXTENSIONS: [".txt"],
-    WEB_SERVER_PORT: 3001,
-    WEB_SERVER_HOST: "127.0.0.1",
-    WEB_SERVER_BASE_URL: "http://localhost:3001",
-    SIGNING_SECRET: "test-signing-secret-key-must-be-long-enough",
-    URL_EXPIRY_SEC: 600,
-    MANAGE_URL_EXPIRY_SEC: 3600,
-    CAPTCHA_CHALLENGE_COUNT: 50,
-    CAPTCHA_DIFFICULTY: 4,
-    DOWNLOADS_PER_HR: 10,
-    RATE_LIMIT_STORAGE_DIR: "tmp/test-rate-limit-upload",
-    SEARCH_MIN_CHARS: 3,
-    SEARCH_THRESHOLD: 0.6,
-    SCAN_INTERVAL_MINS: 15,
-    MAX_FILE_SIZE_MB: 1,
-    LOG_LEVEL: "error",
-    NODE_ENV: "test",
-  };
-
-  captchaManager = new CaptchaManager({
-    hmacSecret: mockConfig.SIGNING_SECRET,
-    challengeCount: 3,
-    challengeDifficulty: 2,
-    expiresMs: mockConfig.URL_EXPIRY_SEC * 1000,
-  });
-
-  rateLimiter = new RateLimiter(
-    mockConfig.DOWNLOADS_PER_HR,
-    3600,
-    mockConfig.RATE_LIMIT_STORAGE_DIR,
-  );
-
-  indexer = new FileIndexer({ directory: tempDir, extensions: [".txt"] });
-  await indexer.start();
-
-  const deps: WebServerDependencies = {
-    config: mockConfig,
-    captchaManager,
-    rateLimiter,
-    indexer,
-    log,
-  };
-
-  server = new WebServer(deps);
+  ctx = await createE2ETestContext({ testName: "upload" });
 });
 
 afterEach(async () => {
-  await server.stop();
-  indexer.stop();
-  await rateLimiter.clear();
-  await rm(tempDir, { recursive: true, force: true });
+  await ctx.cleanup();
 });
 
 it("uploads file successfully to root directory", async () => {
   const userId = "user123";
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const signature = urlObj.searchParams.get("signature");
   const expiresAt = urlObj.searchParams.get("expiresAt");
@@ -139,7 +75,7 @@ it("uploads file successfully to root directory", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -152,19 +88,19 @@ it("uploads file successfully to root directory", async () => {
   expect(body.filename).toBe(fileName);
   expect(body.path).toBe(fileName);
 
-  const uploadedFilePath = join(tempDir, fileName);
+  const uploadedFilePath = join(ctx.tempDir, fileName);
   await expect(access(uploadedFilePath)).resolves.toBeUndefined();
   const uploadedContent = await readFile(uploadedFilePath, "utf-8");
   expect(uploadedContent).toBe(fileContent);
 
-  const files = indexer.getAll();
+  const files = ctx.indexer.getAll();
   const uploadedFile = files.find((f) => f.name === fileName);
   expect(uploadedFile).toBeDefined();
 });
 
 it("uploads file successfully to subdirectory", async () => {
   const userId = "user123";
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const signature = urlObj.searchParams.get("signature");
   const expiresAt = urlObj.searchParams.get("expiresAt");
@@ -190,7 +126,7 @@ it("uploads file successfully to subdirectory", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -203,7 +139,7 @@ it("uploads file successfully to subdirectory", async () => {
   expect(body.filename).toBe(fileName);
   expect(body.path).toBe(`${targetDir}/${fileName}`);
 
-  const uploadedFilePath = join(tempDir, targetDir, fileName);
+  const uploadedFilePath = join(ctx.tempDir, targetDir, fileName);
   await expect(access(uploadedFilePath)).resolves.toBeUndefined();
   const uploadedContent = await readFile(uploadedFilePath, "utf-8");
   expect(uploadedContent).toBe(fileContent);
@@ -211,7 +147,7 @@ it("uploads file successfully to subdirectory", async () => {
 
 it("returns 400 when no file is provided", async () => {
   const userId = "user123";
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const signature = urlObj.searchParams.get("signature");
   const expiresAt = urlObj.searchParams.get("expiresAt");
@@ -226,7 +162,7 @@ it("returns 400 when no file is provided", async () => {
     expiresAt,
   });
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -251,7 +187,7 @@ it("returns 400 when authentication data is missing", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -265,7 +201,7 @@ it("returns 400 when authentication data is missing", async () => {
 it("returns 403 when authentication token has expired", async () => {
   const userId = "user123";
   const expiredTimestamp = Date.now() - 1000;
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const signature = urlObj.searchParams.get("signature");
 
@@ -288,7 +224,7 @@ it("returns 403 when authentication token has expired", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -301,7 +237,7 @@ it("returns 403 when authentication token has expired", async () => {
 
 it("returns 403 when signature is invalid", async () => {
   const userId = "user123";
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const expiresAt = urlObj.searchParams.get("expiresAt");
 
@@ -324,7 +260,7 @@ it("returns 403 when signature is invalid", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -337,7 +273,7 @@ it("returns 403 when signature is invalid", async () => {
 
 it("sanitizes path and prevents directory traversal", async () => {
   const userId = "user123";
-  const manageUrl = server.generateManageUrl(userId);
+  const manageUrl = ctx.server.generateManageUrl(userId);
   const urlObj = new URL(manageUrl);
   const signature = urlObj.searchParams.get("signature");
   const expiresAt = urlObj.searchParams.get("expiresAt");
@@ -363,7 +299,7 @@ it("sanitizes path and prevents directory traversal", async () => {
     },
   );
 
-  const response = await server.getApp().inject({
+  const response = await ctx.server.getApp().inject({
     method: "POST",
     url: "/upload",
     headers,
@@ -377,9 +313,9 @@ it("sanitizes path and prevents directory traversal", async () => {
   const sanitizedPath = "etc";
   expect(body.path).toBe(`${sanitizedPath}/${fileName}`);
 
-  const uploadedFilePath = join(tempDir, sanitizedPath, fileName);
+  const uploadedFilePath = join(ctx.tempDir, sanitizedPath, fileName);
   await expect(access(uploadedFilePath)).resolves.toBeUndefined();
 
-  const outsideTempDir = join(tempDir, "..", "..", "..", "etc", fileName);
+  const outsideTempDir = join(ctx.tempDir, "..", "..", "..", "etc", fileName);
   await expect(access(outsideTempDir)).rejects.toThrow();
 });
