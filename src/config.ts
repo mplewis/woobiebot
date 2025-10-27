@@ -37,6 +37,7 @@ const configSchema = z.object({
   SEARCH_MIN_CHARS: z.coerce.number().int().positive().default(3),
   SEARCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   SCAN_INTERVAL_MINS: z.coerce.number().nonnegative().default(15),
+  MAX_FILE_SIZE_MB: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DISCORD_ERROR_WEBHOOK_URL: z.string().url().optional(),

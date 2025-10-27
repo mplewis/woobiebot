@@ -34,6 +34,7 @@ beforeEach(() => {
     SEARCH_MIN_CHARS: 3,
     SEARCH_THRESHOLD: 0.6,
     SCAN_INTERVAL_MINS: 15,
+    MAX_FILE_SIZE_MB: 1,
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
   };

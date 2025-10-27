@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
+/**
+ * Structure of the Vite build manifest containing output file mappings.
+ */
 interface ViteManifest {
   [key: string]: {
     file: string;
@@ -12,8 +15,15 @@ interface ViteManifest {
   };
 }
 
+/**
+ * Cached Vite manifest to avoid repeated file system reads.
+ */
 let manifestCache: ViteManifest | null = null;
 
+/**
+ * Load and cache the Vite build manifest from disk.
+ * @returns The parsed manifest object, or null if the manifest file doesn't exist
+ */
 function loadManifest(): ViteManifest | null {
   if (manifestCache !== null) {
     return manifestCache;
@@ -29,6 +39,11 @@ function loadManifest(): ViteManifest | null {
   return manifestCache;
 }
 
+/**
+ * Resolve the bundled script path for a given frontend entry point.
+ * @param entryName - Name of the frontend entry (e.g., "captcha", "manage")
+ * @returns The public path to the bundled script file
+ */
 function getScriptPath(entryName: string): string {
   const manifest = loadManifest();
   if (!manifest) {
@@ -117,4 +132,7 @@ class TemplateLoader {
   }
 }
 
+/**
+ * Global singleton instance for loading and rendering HTML templates.
+ */
 export const templateLoader = new TemplateLoader();

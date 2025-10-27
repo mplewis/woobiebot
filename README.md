@@ -93,5 +93,7 @@ DISCORD_GUILD_IDS=123456789012345678,234567890123456789
 | `SEARCH_MIN_CHARS`          | number | `3`                           |          | Minimum character length for search queries                                                       |
 | `SEARCH_THRESHOLD`          | number | `0.6`                         |          | Fuzzy search threshold (0-1, higher = more fuzzy)                                                 |
 | `SCAN_INTERVAL_MINS`        | number | `15`                          |          | File index rescan interval in minutes (supports decimals, e.g., 0.5 for 30s; set to 0 to disable) |
+| `MAX_FILE_SIZE_MB`          | number | `1`                           |          | Maximum file upload size in megabytes                                                             |
+| `MANAGE_URL_EXPIRY_SEC`     | number | `3600`                        |          | Management URL expiration time in seconds                                                         |
 | `LOG_LEVEL`                 | string | `info`                        |          | Logging level (fatal, error, warn, info, debug, trace)                                            |
 | `DISCORD_ERROR_WEBHOOK_URL` | string | -                             |          | Discord webhook URL for error notifications (errors are batched and sent every 5s as embeds)      |

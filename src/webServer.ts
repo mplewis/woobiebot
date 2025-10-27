@@ -13,10 +13,8 @@ import { registerRoutes } from "./routes.js";
 import { UrlSigner } from "./urlSigner.js";
 
 /**
- * Maximum file upload size in bytes (200 MB).
+ * Dependencies required for initializing the web server.
  */
-const MAX_FILE_SIZE = 200 * 1024 * 1024;
-
 export interface WebServerDependencies {
   config: Config;
   captchaManager: CaptchaManager;
@@ -47,7 +45,7 @@ export class WebServer {
     this.app.register(fastifyFormBody);
     this.app.register(fastifyMultipart, {
       limits: {
-        fileSize: MAX_FILE_SIZE,
+        fileSize: deps.config.MAX_FILE_SIZE_MB * 1024 * 1024,
       },
     });
     this.setupErrorHandler();
@@ -77,6 +75,9 @@ export class WebServer {
     });
   }
 
+  /**
+   * Register static file serving for the public directory containing built frontend assets.
+   */
   private setupStaticFiles(): void {
     const publicDir = resolve(process.cwd(), "dist", "public");
     if (existsSync(publicDir)) {
@@ -87,6 +88,9 @@ export class WebServer {
     }
   }
 
+  /**
+   * Register all HTTP routes with the Fastify application instance.
+   */
   private setupRoutes(deps: WebServerDependencies): void {
     registerRoutes(this.app, {
       urlSigner: this.urlSigner,

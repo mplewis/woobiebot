@@ -9,6 +9,9 @@ import type { RateLimiter } from "./rateLimiter.js";
 import { templateLoader } from "./templateLoader.js";
 import type { UrlSigner } from "./urlSigner.js";
 
+/**
+ * Dependencies required for registering HTTP routes.
+ */
 export interface RoutesDependencies {
   urlSigner: UrlSigner;
   captchaManager: CaptchaManager;
@@ -341,7 +344,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       );
 
       if (!userId || !signature || !expiresAtStr) {
-        log.info({ userId, signature, expiresAtStr }, "Missing authentication data for file upload");
+        log.info(
+          { userId, signature, expiresAtStr },
+          "Missing authentication data for file upload",
+        );
         return reply.status(400).send({ error: "Missing authentication data" });
       }
 
@@ -372,7 +378,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       await mkdir(targetDir, { recursive: true });
       await writeFile(targetPath, fileData.buffer);
 
-      log.info({ userId, filename: fileData.filename, path: targetPath }, "File uploaded successfully");
+      log.info(
+        { userId, filename: fileData.filename, path: targetPath },
+        "File uploaded successfully",
+      );
 
       await indexer.rescan();
 
