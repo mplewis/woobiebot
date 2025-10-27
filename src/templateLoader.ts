@@ -78,56 +78,50 @@ class TemplateLoader {
   }
 
   /**
-   * Render the captcha page with the provided data.
+   * Render the captcha page with URL parameters for API data fetching.
    */
   renderCaptchaPage(data: {
-    challenge: { c: number; s: number; d: number };
-    token: string;
-    signature: string;
     userId: string;
     fileId: string;
+    token: string;
+    signature: string;
+    expiresAt: string;
   }): string {
     const html = this.load("captcha.html");
     const css = this.load("captcha.css");
     const scriptSrc = getScriptPath("captcha");
 
-    const pageData = {
-      challenge: data.challenge,
-      token: data.token,
-      signature: data.signature,
+    const apiParams = new URLSearchParams({
       userId: data.userId,
       fileId: data.fileId,
-    };
+      token: data.token,
+      sig: data.signature,
+      expiresAt: data.expiresAt,
+    });
 
     return html
       .replace("{{STYLES}}", css)
-      .replace("{{DATA}}", JSON.stringify(pageData))
+      .replace("{{API_PARAMS}}", apiParams.toString())
       .replace("{{SCRIPT_SRC}}", scriptSrc);
   }
 
   /**
-   * Render the file management page with the provided data.
+   * Render the file management page with URL parameters for API data fetching.
    */
-  renderManagePage(data: {
-    userId: string;
-    signature: string;
-    expiresAt: number;
-    directoryTree: Record<string, unknown>;
-  }): string {
+  renderManagePage(data: { userId: string; signature: string; expiresAt: string }): string {
     const html = this.load("manage.html");
     const css = this.load("manage.css");
     const scriptSrc = getScriptPath("manage");
 
-    const pageData = {
+    const apiParams = new URLSearchParams({
       userId: data.userId,
       signature: data.signature,
       expiresAt: data.expiresAt,
-      directoryTree: data.directoryTree,
-    };
+    });
 
     return html
       .replace("{{STYLES}}", css)
-      .replace("{{DATA}}", JSON.stringify(pageData))
+      .replace("{{API_PARAMS}}", apiParams.toString())
       .replace("{{SCRIPT_SRC}}", scriptSrc);
   }
 }

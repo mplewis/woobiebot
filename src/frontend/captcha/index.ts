@@ -2,16 +2,25 @@ import type { CaptchaPageData } from "../../shared/types.js";
 import { solveCaptcha } from "./crypto.js";
 import { extractFilenameFromHeader, triggerBrowserDownload } from "./download.js";
 
-declare global {
-  interface Window {
-    __CAPTCHA_DATA__: CaptchaPageData;
-  }
-}
-
 /**
- * Captcha challenge data injected by the server into the page.
+ * Fetches captcha data from the API using parameters provided by the server.
  */
-const { challenge, token, signature, userId, fileId } = window.__CAPTCHA_DATA__;
+async function fetchCaptchaData(): Promise<CaptchaPageData> {
+  const scriptTag = document.querySelector<HTMLScriptElement>("script[data-api-params]");
+  if (!scriptTag || !scriptTag.dataset.apiParams) {
+    throw new Error("API parameters not found");
+  }
+
+  const params = new URLSearchParams(scriptTag.dataset.apiParams);
+  const response = await fetch(`/api/captcha-data?${params.toString()}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to load captcha data");
+  }
+
+  return await response.json();
+}
 
 /**
  * Status message display element.
@@ -69,9 +78,10 @@ function hideProgress(): void {
  * Submits the captcha solution to the server for verification.
  * On success, extracts the filename from response headers and triggers a download.
  *
+ * @param captchaData - The captcha challenge data from the API
  * @param solution - Array of nonces that solve the challenges
  */
-async function submitSolution(solution: number[]): Promise<void> {
+async function submitSolution(captchaData: CaptchaPageData, solution: number[]): Promise<void> {
   try {
     hideProgress();
     setStatus("Verifying solution...", "info");
@@ -82,11 +92,11 @@ async function submitSolution(solution: number[]): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        userId,
-        fileId,
-        token,
-        challenge: JSON.stringify(challenge),
-        signature,
+        userId: captchaData.userId,
+        fileId: captchaData.fileId,
+        token: captchaData.token,
+        challenge: JSON.stringify(captchaData.challenge),
+        signature: captchaData.signature,
         solution: solution.join(","),
       }),
     });
@@ -116,11 +126,14 @@ async function submitSolution(solution: number[]): Promise<void> {
 
 (async () => {
   try {
+    setStatus("Loading challenge...", "info");
+    const captchaData = await fetchCaptchaData();
+
     setStatus("Solving challenge...", "info");
-    const solutions = await solveCaptcha(token, challenge, setProgress);
+    const solutions = await solveCaptcha(captchaData.token, captchaData.challenge, setProgress);
 
     setStatus("Challenge solved! Verifying...", "info");
-    await submitSolution(solutions);
+    await submitSolution(captchaData, solutions);
   } catch (error) {
     console.error("Failed to solve captcha challenge:", error);
     setStatus(

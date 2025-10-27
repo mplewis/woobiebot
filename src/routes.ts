@@ -49,7 +49,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(403).send({ error: "Invalid or expired download link" });
     }
 
-    const { userId, fileId } = verified;
+    const { userId, fileId, expiresAt } = verified;
 
     // Check if file exists
     const file = indexer.getById(fileId);
@@ -58,16 +58,20 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(404).send({ error: "File not found" });
     }
 
-    // Generate captcha challenge
-    const challengeData = await captchaManager.generateChallenge(userId, fileId);
+    // Generate a token for this download session
+    const token = Math.random().toString(36).substring(2, 15);
 
-    // Render captcha page
+    // Get the signature from the original download URL
+    const urlObj = new URL(url);
+    const signature = urlObj.searchParams.get("signature") || "";
+
+    // Render captcha page with API parameters in URL
     const html = templateLoader.renderCaptchaPage({
-      challenge: challengeData.challenge,
-      token: challengeData.token,
-      signature: challengeData.signature,
       userId,
       fileId,
+      token,
+      signature,
+      expiresAt: expiresAt.toString(),
     });
 
     return reply.type("text/html").send(html);
@@ -157,16 +161,15 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     }
 
     const { userId, expiresAt } = verified;
-    const directoryTree = indexer.getDirectoryTree();
 
     const urlObj = new URL(url);
     const signature = urlObj.searchParams.get("signature") || "";
 
+    // Render manage page with API parameters in URL
     const html = templateLoader.renderManagePage({
       userId,
       signature,
-      expiresAt,
-      directoryTree,
+      expiresAt: expiresAt.toString(),
     });
 
     return reply.type("text/html").send(html);
@@ -409,6 +412,109 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       log.error({ err }, "File upload failed");
       return reply.status(500).send({ error: "File upload failed" });
     }
+  });
+
+  /**
+   * GET /api/captcha-data
+   * Provide captcha page data via API for client-side rendering.
+   */
+  app.get("/api/captcha-data", async (request, reply) => {
+    const url = `${baseUrl}${request.url}`;
+    const urlObj = new URL(url);
+
+    const userId = urlObj.searchParams.get("userId");
+    const fileId = urlObj.searchParams.get("fileId");
+    const token = urlObj.searchParams.get("token");
+    const sig = urlObj.searchParams.get("sig");
+    const expiresAtStr = urlObj.searchParams.get("expiresAt");
+
+    if (!userId || !fileId || !token || !sig || !expiresAtStr) {
+      log.info({ url }, "Missing required parameters for captcha data API");
+      return reply.status(400).send({ error: "Missing required parameters" });
+    }
+
+    const expiresAt = Number.parseInt(expiresAtStr, 10);
+    if (Number.isNaN(expiresAt)) {
+      log.info({ userId }, "Invalid expiration timestamp for captcha data API");
+      return reply.status(400).send({ error: "Invalid expiration timestamp" });
+    }
+
+    if (Date.now() > expiresAt) {
+      log.info({ userId, fileId }, "Expired authentication token for captcha data API");
+      return reply.status(403).send({ error: "Authentication token has expired" });
+    }
+
+    const downloadUrl = urlSigner.signDownloadUrl(baseUrl, userId, fileId, expiresAt - Date.now());
+    const downloadUrlObj = new URL(downloadUrl);
+    const expectedSig = downloadUrlObj.searchParams.get("signature");
+
+    if (sig !== expectedSig) {
+      log.info({ url }, "Invalid signature for captcha data API");
+      return reply.status(403).send({ error: "Invalid signature" });
+    }
+
+    const file = indexer.getById(fileId);
+    if (!file) {
+      log.info({ fileId, userId }, "File not found for captcha data API");
+      return reply.status(404).send({ error: "File not found" });
+    }
+
+    const challengeData = await captchaManager.generateChallenge(userId, fileId);
+
+    return reply.send({
+      challenge: challengeData.challenge,
+      token: challengeData.token,
+      signature: challengeData.signature,
+      userId,
+      fileId,
+    });
+  });
+
+  /**
+   * GET /api/manage-data
+   * Provide manage page data via API for client-side rendering.
+   */
+  app.get("/api/manage-data", async (request, reply) => {
+    const url = `${baseUrl}${request.url}`;
+    const urlObj = new URL(url);
+
+    const userId = urlObj.searchParams.get("userId");
+    const signature = urlObj.searchParams.get("signature");
+    const expiresAtStr = urlObj.searchParams.get("expiresAt");
+
+    if (!userId || !signature || !expiresAtStr) {
+      log.info({ url }, "Missing required parameters for manage data API");
+      return reply.status(400).send({ error: "Missing required parameters" });
+    }
+
+    const expiresAt = Number.parseInt(expiresAtStr, 10);
+    if (Number.isNaN(expiresAt)) {
+      log.info({ userId }, "Invalid expiration timestamp for manage data API");
+      return reply.status(400).send({ error: "Invalid expiration timestamp" });
+    }
+
+    if (Date.now() > expiresAt) {
+      log.info({ userId }, "Expired authentication token for manage data API");
+      return reply.status(403).send({ error: "Authentication token has expired" });
+    }
+
+    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
+    const manageUrlObj = new URL(manageUrl);
+    const expectedSignature = manageUrlObj.searchParams.get("signature");
+
+    if (signature !== expectedSignature) {
+      log.info({ userId }, "Invalid signature for manage data API");
+      return reply.status(403).send({ error: "Invalid authentication signature" });
+    }
+
+    const directoryTree = indexer.getDirectoryTree();
+
+    return reply.send({
+      userId,
+      signature,
+      expiresAt,
+      directoryTree,
+    });
   });
 
   /**

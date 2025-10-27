@@ -7,25 +7,35 @@ import type {
 } from "../../shared/types.js";
 import { isTreeEmpty, sortTreeEntries } from "./tree.js";
 
-declare global {
-  interface Window {
-    __MANAGE_DATA__: ManagePageData;
+/**
+ * Fetches manage page data from the API using parameters provided by the server.
+ */
+async function fetchManageData(): Promise<ManagePageData> {
+  const scriptTag = document.querySelector<HTMLScriptElement>("script[data-api-params]");
+  if (!scriptTag || !scriptTag.dataset.apiParams) {
+    throw new Error("API parameters not found");
   }
+
+  const params = new URLSearchParams(scriptTag.dataset.apiParams);
+  const response = await fetch(`/api/manage-data?${params.toString()}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to load manage data");
+  }
+
+  return await response.json();
 }
 
 /**
- * Authentication credentials for API requests, extracted from server-injected page data.
+ * Authentication credentials for API requests.
  */
-const AUTH_DATA: AuthData = {
-  userId: window.__MANAGE_DATA__.userId,
-  signature: window.__MANAGE_DATA__.signature,
-  expiresAt: window.__MANAGE_DATA__.expiresAt,
-};
+let AUTH_DATA: AuthData;
 
 /**
  * Complete directory tree structure containing all indexed files.
  */
-const DIRECTORY_TREE = window.__MANAGE_DATA__.directoryTree;
+let DIRECTORY_TREE: DirectoryTree;
 
 /**
  * ID of the file currently selected for deletion (null if no file is selected).
@@ -293,29 +303,46 @@ async function handleDeleteFile(): Promise<void> {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("upload-form") as HTMLFormElement;
-  form.addEventListener("submit", handleUpload);
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const manageData = await fetchManageData();
 
-  const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
-  renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
+    AUTH_DATA = {
+      userId: manageData.userId,
+      signature: manageData.signature,
+      expiresAt: manageData.expiresAt,
+    };
+    DIRECTORY_TREE = manageData.directoryTree;
 
-  const deleteConfirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
-  const deleteConfirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
-  const deleteCancelBtn = document.getElementById("delete-cancel-btn") as HTMLButtonElement;
+    const form = document.getElementById("upload-form") as HTMLFormElement;
+    form.addEventListener("submit", handleUpload);
 
-  deleteConfirmInput.addEventListener("input", (e) => {
-    const target = e.target as HTMLInputElement;
-    deleteConfirmBtn.disabled = target.value.trim() !== currentDeleteFileName;
-  });
+    const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
+    renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
 
-  deleteConfirmBtn.addEventListener("click", handleDeleteFile);
-  deleteCancelBtn.addEventListener("click", hideDeleteModal);
+    const deleteConfirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
+    const deleteConfirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
+    const deleteCancelBtn = document.getElementById("delete-cancel-btn") as HTMLButtonElement;
 
-  const deleteModal = document.getElementById("delete-modal") as HTMLDivElement;
-  deleteModal.addEventListener("click", (e) => {
-    if (e.target === deleteModal) {
-      hideDeleteModal();
-    }
-  });
+    deleteConfirmInput.addEventListener("input", (e) => {
+      const target = e.target as HTMLInputElement;
+      deleteConfirmBtn.disabled = target.value.trim() !== currentDeleteFileName;
+    });
+
+    deleteConfirmBtn.addEventListener("click", handleDeleteFile);
+    deleteCancelBtn.addEventListener("click", hideDeleteModal);
+
+    const deleteModal = document.getElementById("delete-modal") as HTMLDivElement;
+    deleteModal.addEventListener("click", (e) => {
+      if (e.target === deleteModal) {
+        hideDeleteModal();
+      }
+    });
+  } catch (error) {
+    console.error("Failed to load manage data:", error);
+    showStatus(
+      `Failed to load page data: ${error instanceof Error ? error.message : "Unknown error"}`,
+      "error",
+    );
+  }
 });
