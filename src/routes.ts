@@ -33,7 +33,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const verified = urlSigner.verifyDownloadUrl(url);
 
     if (!verified) {
-      log.warn({ url }, "Invalid or expired download URL");
+      log.info({ url }, "Invalid or expired download URL");
       return reply.status(403).send({ error: "Invalid or expired download link" });
     }
 
@@ -42,7 +42,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     // Check if file exists
     const file = indexer.getById(fileId);
     if (!file) {
-      log.warn({ fileId, userId }, "File not found");
+      log.info({ fileId, userId }, "File not found");
       return reply.status(404).send({ error: "File not found" });
     }
 
@@ -79,6 +79,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const { userId, fileId, token, challenge, signature, solution } = body;
 
     if (!userId || !fileId || !token || !challenge || !signature || !solution) {
+      log.info({ userId, fileId }, "Missing required fields in captcha verification");
       return reply.status(400).send({ error: "Missing required fields" });
     }
 
@@ -93,21 +94,21 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     );
 
     if (!isValid) {
-      log.warn({ userId, fileId }, "Invalid captcha solution");
+      log.info({ userId, fileId }, "Invalid captcha solution");
       return reply.status(403).send({ error: "Invalid captcha solution" });
     }
 
     // Check rate limit
     const rateLimitResult = await rateLimiter.consume(userId);
     if (!rateLimitResult.allowed) {
-      log.warn({ userId, fileId }, "Rate limit exceeded");
+      log.info({ userId, fileId }, "Rate limit exceeded");
       return reply.status(429).send({ error: "Rate limit exceeded. Please try again later." });
     }
 
     // Get file info
     const file = indexer.getById(fileId);
     if (!file) {
-      log.warn({ fileId, userId }, "File not found");
+      log.info({ fileId, userId }, "File not found");
       return reply.status(404).send({ error: "File not found" });
     }
 
@@ -143,7 +144,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const verified = urlSigner.verifyManageUrl(url);
 
     if (!verified) {
-      log.warn({ url }, "Invalid or expired manage URL");
+      log.info({ url }, "Invalid or expired manage URL");
       return reply.status(403).send({ error: "Invalid or expired management link" });
     }
 
@@ -179,15 +180,18 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const expiresAtStr = urlObj.searchParams.get("expiresAt");
 
     if (!userId || !signature || !expiresAtStr) {
+      log.info({ fileId }, "Missing authentication parameters for manage download");
       return reply.status(400).send({ error: "Missing authentication parameters" });
     }
 
     const expiresAt = Number.parseInt(expiresAtStr, 10);
     if (Number.isNaN(expiresAt)) {
+      log.info({ userId, fileId }, "Invalid expiration timestamp for manage download");
       return reply.status(400).send({ error: "Invalid expiration timestamp" });
     }
 
     if (Date.now() > expiresAt) {
+      log.info({ userId, fileId }, "Expired authentication token for manage download");
       return reply.status(403).send({ error: "Authentication token has expired" });
     }
 
@@ -196,13 +200,13 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const expectedSignature = manageUrlObj.searchParams.get("signature");
 
     if (signature !== expectedSignature) {
-      log.warn({ userId, fileId }, "Invalid download signature");
+      log.info({ userId, fileId }, "Invalid download signature");
       return reply.status(403).send({ error: "Invalid authentication signature" });
     }
 
     const file = indexer.getById(fileId);
     if (!file) {
-      log.warn({ fileId, userId }, "File not found for manage download");
+      log.info({ fileId, userId }, "File not found for manage download");
       return reply.status(404).send({ error: "File not found" });
     }
 
@@ -244,15 +248,18 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const expiresAtStr = urlObj.searchParams.get("expiresAt");
 
     if (!userId || !signature || !expiresAtStr) {
+      log.info({ fileId }, "Missing authentication parameters for file deletion");
       return reply.status(400).send({ error: "Missing authentication parameters" });
     }
 
     const expiresAt = Number.parseInt(expiresAtStr, 10);
     if (Number.isNaN(expiresAt)) {
+      log.info({ userId, fileId }, "Invalid expiration timestamp for file deletion");
       return reply.status(400).send({ error: "Invalid expiration timestamp" });
     }
 
     if (Date.now() > expiresAt) {
+      log.info({ userId, fileId }, "Expired authentication token for file deletion");
       return reply.status(403).send({ error: "Authentication token has expired" });
     }
 
@@ -261,13 +268,13 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const expectedSignature = manageUrlObj.searchParams.get("signature");
 
     if (signature !== expectedSignature) {
-      log.warn({ userId, fileId }, "Invalid delete signature");
+      log.info({ userId, fileId }, "Invalid delete signature");
       return reply.status(403).send({ error: "Invalid authentication signature" });
     }
 
     const file = indexer.getById(fileId);
     if (!file) {
-      log.warn({ fileId, userId }, "File not found for deletion");
+      log.info({ fileId, userId }, "File not found for deletion");
       return reply.status(404).send({ error: "File not found" });
     }
 
@@ -305,6 +312,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       const data = await request.file();
 
       if (!data) {
+        log.info("No file provided in upload request");
         return reply.status(400).send({ error: "No file provided" });
       }
 
@@ -320,21 +328,23 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       };
 
       const userId = getFieldValue("userId");
-      const token = getFieldValue("userId");
       const signature = getFieldValue("signature");
       const expiresAtStr = getFieldValue("expiresAt");
       const targetDirectory = getFieldValue("directory") || "";
 
-      if (!userId || !token || !signature || !expiresAtStr) {
+      if (!userId || !signature || !expiresAtStr) {
+        log.info({ userId }, "Missing authentication data for file upload");
         return reply.status(400).send({ error: "Missing authentication data" });
       }
 
       const expiresAt = Number.parseInt(expiresAtStr, 10);
       if (Number.isNaN(expiresAt)) {
+        log.info({ userId }, "Invalid expiration timestamp for file upload");
         return reply.status(400).send({ error: "Invalid expiration timestamp" });
       }
 
       if (Date.now() > expiresAt) {
+        log.info({ userId }, "Expired authentication token for file upload");
         return reply.status(403).send({ error: "Authentication token has expired" });
       }
 
@@ -343,7 +353,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       const expectedSignature = urlObj.searchParams.get("signature");
 
       if (signature !== expectedSignature) {
-        log.warn({ userId }, "Invalid upload signature");
+        log.info({ userId }, "Invalid upload signature");
         return reply.status(403).send({ error: "Invalid authentication signature" });
       }
 
