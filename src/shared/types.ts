@@ -43,8 +43,6 @@ export type DirectoryTree = DirectoryTreeNode;
 export interface AuthData {
   /** Unique user identifier */
   userId: string;
-  /** Authentication token */
-  token: string;
   /** HMAC signature for request verification */
   signature: string;
   /** Unix timestamp when the authentication expires */
@@ -85,8 +83,6 @@ export interface CaptchaPageData {
 export interface ManagePageData {
   /** Unique user identifier */
   userId: string;
-  /** Authentication token */
-  token: string;
   /** HMAC signature for request verification */
   signature: string;
   /** Unix timestamp when the authentication expires */

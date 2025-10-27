@@ -41,7 +41,9 @@
       "Bash(npm test:*)",
       "Bash(pnpm build:frontend:*)",
       "Bash(pnpm build:backend:*)",
-      "Bash(pnpm build)"
+      "Bash(pnpm build)",
+      "Bash(pnpm start)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

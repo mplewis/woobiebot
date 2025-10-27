@@ -152,12 +152,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const directoryTree = indexer.getDirectoryTree();
 
     const urlObj = new URL(url);
-    const token = urlObj.searchParams.get("userId") || "";
     const signature = urlObj.searchParams.get("signature") || "";
 
     const html = templateLoader.renderManagePage({
       userId,
-      token,
       signature,
       expiresAt,
       directoryTree,
@@ -309,31 +307,41 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    */
   app.post("/upload", async (request, reply) => {
     try {
-      const data = await request.file();
+      const parts = request.parts();
+      const fields: Record<string, string> = {};
+      let fileData: { filename: string; buffer: Buffer } | null = null;
 
-      if (!data) {
+      for await (const part of parts) {
+        if (part.type === "file") {
+          const buffer = await part.toBuffer();
+          fileData = { filename: part.filename, buffer };
+        } else {
+          fields[part.fieldname] = part.value as string;
+        }
+      }
+
+      if (!fileData) {
         log.info("No file provided in upload request");
         return reply.status(400).send({ error: "No file provided" });
       }
 
-      const getFieldValue = (fieldName: string): string | undefined => {
-        const field = data.fields[fieldName];
-        if (!field) {
-          return undefined;
-        }
-        if (Array.isArray(field)) {
-          return undefined;
-        }
-        return field.type === "field" ? (field.value as string) : undefined;
-      };
+      const userId = fields["userId"];
+      const signature = fields["signature"];
+      const expiresAtStr = fields["expiresAt"];
+      const targetDirectory = fields["directory"] || "";
 
-      const userId = getFieldValue("userId");
-      const signature = getFieldValue("signature");
-      const expiresAtStr = getFieldValue("expiresAt");
-      const targetDirectory = getFieldValue("directory") || "";
+      log.info(
+        {
+          fields: Object.keys(fields),
+          userId,
+          signature: signature ? "present" : "missing",
+          expiresAtStr,
+        },
+        "Upload request received",
+      );
 
       if (!userId || !signature || !expiresAtStr) {
-        log.info({ userId }, "Missing authentication data for file upload");
+        log.info({ userId, signature, expiresAtStr }, "Missing authentication data for file upload");
         return reply.status(400).send({ error: "Missing authentication data" });
       }
 
@@ -357,23 +365,22 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         return reply.status(403).send({ error: "Invalid authentication signature" });
       }
 
-      const buffer = await data.toBuffer();
       const sanitizedDir = targetDirectory.replace(/\.\./g, "").replace(/^\/+/, "");
-      const targetPath = join(indexer["directory"], sanitizedDir, data.filename);
+      const targetPath = join(indexer["directory"], sanitizedDir, fileData.filename);
       const targetDir = dirname(targetPath);
 
       await mkdir(targetDir, { recursive: true });
-      await writeFile(targetPath, buffer);
+      await writeFile(targetPath, fileData.buffer);
 
-      log.info({ userId, filename: data.filename, path: targetPath }, "File uploaded successfully");
+      log.info({ userId, filename: fileData.filename, path: targetPath }, "File uploaded successfully");
 
       await indexer.rescan();
 
       return reply.send({
         success: true,
         message: "File uploaded successfully",
-        filename: data.filename,
-        path: sanitizedDir ? `${sanitizedDir}/${data.filename}` : data.filename,
+        filename: fileData.filename,
+        path: sanitizedDir ? `${sanitizedDir}/${fileData.filename}` : fileData.filename,
       });
     } catch (err) {
       log.error({ err }, "File upload failed");

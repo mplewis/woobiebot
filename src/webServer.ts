@@ -12,6 +12,11 @@ import type { RateLimiter } from "./rateLimiter.js";
 import { registerRoutes } from "./routes.js";
 import { UrlSigner } from "./urlSigner.js";
 
+/**
+ * Maximum file upload size in bytes (200 MB).
+ */
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
+
 export interface WebServerDependencies {
   config: Config;
   captchaManager: CaptchaManager;
@@ -40,7 +45,11 @@ export class WebServer {
     });
 
     this.app.register(fastifyFormBody);
-    this.app.register(fastifyMultipart);
+    this.app.register(fastifyMultipart, {
+      limits: {
+        fileSize: MAX_FILE_SIZE,
+      },
+    });
     this.setupErrorHandler();
     this.setupStaticFiles();
     this.setupRoutes(deps);

@@ -18,7 +18,6 @@ declare global {
  */
 const AUTH_DATA: AuthData = {
   userId: window.__MANAGE_DATA__.userId,
-  token: window.__MANAGE_DATA__.token,
   signature: window.__MANAGE_DATA__.signature,
   expiresAt: window.__MANAGE_DATA__.expiresAt,
 };
@@ -188,7 +187,6 @@ async function handleUpload(event: Event): Promise<void> {
   const uploadBtn = document.getElementById("upload-btn") as HTMLButtonElement;
 
   formData.append("userId", AUTH_DATA.userId);
-  formData.append("token", AUTH_DATA.token);
   formData.append("signature", AUTH_DATA.signature);
   formData.append("expiresAt", AUTH_DATA.expiresAt.toString());
 

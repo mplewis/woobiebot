@@ -95,7 +95,6 @@ class TemplateLoader {
    */
   renderManagePage(data: {
     userId: string;
-    token: string;
     signature: string;
     expiresAt: number;
     directoryTree: Record<string, unknown>;
@@ -106,7 +105,6 @@ class TemplateLoader {
 
     const pageData = {
       userId: data.userId,
-      token: data.token,
       signature: data.signature,
       expiresAt: data.expiresAt,
       directoryTree: data.directoryTree,
