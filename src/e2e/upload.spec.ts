@@ -2,12 +2,12 @@ import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { CaptchaManager } from "./captcha.js";
-import type { Config } from "./config.js";
-import { FileIndexer } from "./indexer.js";
-import { log } from "./logger.js";
-import { RateLimiter } from "./rateLimiter.js";
-import { WebServer, type WebServerDependencies } from "./webServer.js";
+import { CaptchaManager } from "../captcha.js";
+import type { Config } from "../config.js";
+import { FileIndexer } from "../indexer.js";
+import { log } from "../logger.js";
+import { RateLimiter } from "../rateLimiter.js";
+import { WebServer, type WebServerDependencies } from "../webServer.js";
 
 let server: WebServer;
 let tempDir: string;
