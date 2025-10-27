@@ -69,7 +69,7 @@ export class WebServer {
   }
 
   private setupStaticFiles(): void {
-    const publicDir = resolve(process.cwd(), "public");
+    const publicDir = resolve(process.cwd(), "dist", "public");
     if (existsSync(publicDir)) {
       this.app.register(fastifyStatic, {
         root: publicDir,

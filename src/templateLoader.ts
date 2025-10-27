@@ -1,8 +1,46 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
+
+interface ViteManifest {
+  [key: string]: {
+    file: string;
+    src?: string;
+    isEntry?: boolean;
+  };
+}
+
+let manifestCache: ViteManifest | null = null;
+
+function loadManifest(): ViteManifest | null {
+  if (manifestCache !== null) {
+    return manifestCache;
+  }
+
+  const manifestPath = join(__dirname, "public", ".vite", "manifest.json");
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+
+  const manifestContent = readFileSync(manifestPath, "utf-8");
+  manifestCache = JSON.parse(manifestContent) as ViteManifest;
+  return manifestCache;
+}
+
+function getScriptPath(entryName: string): string {
+  const manifest = loadManifest();
+  if (!manifest) {
+    return `/public/assets/${entryName}.js`;
+  }
+
+  const entry = manifest[`${entryName}/index.ts`];
+  if (!entry) {
+    return `/public/assets/${entryName}.js`;
+  }
+  return `/public/${entry.file}`;
+}
 
 /**
  * Load and cache template files.
@@ -36,19 +74,20 @@ class TemplateLoader {
   }): string {
     const html = this.load("captcha.html");
     const css = this.load("captcha.css");
-    const script = this.load("captcha.js");
+    const scriptSrc = getScriptPath("captcha");
+
+    const pageData = {
+      challenge: data.challenge,
+      token: data.token,
+      signature: data.signature,
+      userId: data.userId,
+      fileId: data.fileId,
+    };
 
     return html
       .replace("{{STYLES}}", css)
-      .replace(
-        "{{SCRIPT}}",
-        script
-          .replace("{{CHALLENGE}}", JSON.stringify(data.challenge))
-          .replace("{{TOKEN}}", JSON.stringify(data.token))
-          .replace("{{SIGNATURE}}", JSON.stringify(data.signature))
-          .replace("{{USER_ID}}", JSON.stringify(data.userId))
-          .replace("{{FILE_ID}}", JSON.stringify(data.fileId)),
-      );
+      .replace("{{DATA}}", JSON.stringify(pageData))
+      .replace("{{SCRIPT_SRC}}", scriptSrc);
   }
 
   /**
@@ -63,19 +102,20 @@ class TemplateLoader {
   }): string {
     const html = this.load("manage.html");
     const css = this.load("manage.css");
-    const script = this.load("manage.js");
+    const scriptSrc = getScriptPath("manage");
+
+    const pageData = {
+      userId: data.userId,
+      token: data.token,
+      signature: data.signature,
+      expiresAt: data.expiresAt,
+      directoryTree: data.directoryTree,
+    };
 
     return html
       .replace("{{STYLES}}", css)
-      .replace(
-        "{{SCRIPT}}",
-        script
-          .replace("{{USER_ID}}", JSON.stringify(data.userId))
-          .replace("{{TOKEN}}", JSON.stringify(data.token))
-          .replace("{{SIGNATURE}}", JSON.stringify(data.signature))
-          .replace("{{EXPIRES_AT}}", JSON.stringify(data.expiresAt))
-          .replace("{{DIRECTORY_TREE}}", JSON.stringify(data.directoryTree)),
-      );
+      .replace("{{DATA}}", JSON.stringify(pageData))
+      .replace("{{SCRIPT_SRC}}", scriptSrc);
   }
 }
 
