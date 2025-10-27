@@ -195,7 +195,7 @@ it("returns 400 when authentication data is missing", async () => {
   });
 
   expect(response.statusCode).toBe(400);
-  expect(response.json()).toEqual({ error: "Missing authentication data" });
+  expect(response.json()).toEqual({ error: "Invalid form data" });
 });
 
 it("returns 403 when authentication token has expired", async () => {

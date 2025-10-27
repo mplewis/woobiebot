@@ -1,122 +1,161 @@
+import { z } from "zod";
+
 /**
- * Shared type definitions for frontend-backend communication.
+ * Zod schema definitions for frontend-backend communication.
+ * These schemas provide runtime validation and type inference.
  */
 
 /**
  * Metadata for a file in the indexed directory.
  */
-export interface FileMetadata {
-  /** Unique identifier for the file */
-  id: string;
-  /** Filename without path */
-  name: string;
-  /** Relative path from the indexed root directory */
-  path: string;
-  /** Absolute filesystem path */
-  absolutePath: string;
-  /** File size in bytes */
-  size: number;
-  /** Last modified timestamp */
-  mtime: Date;
-  /** MIME type of the file */
-  mimeType: string;
-}
+export const FileMetadataSchema = z.object({
+  id: z.string().describe("Unique identifier for the file"),
+  name: z.string().describe("Filename without path"),
+  path: z.string().describe("Relative path from the indexed root directory"),
+  absolutePath: z.string().describe("Absolute filesystem path"),
+  size: z.number().int().nonnegative().describe("File size in bytes"),
+  mtime: z.coerce.date().describe("Last modified timestamp"),
+  mimeType: z.string().describe("MIME type of the file"),
+});
+
+export type FileMetadata = z.infer<typeof FileMetadataSchema>;
 
 /**
  * Recursive directory tree structure where each key is a directory name
  * or the special "_files" key containing FileMetadata for files in that directory.
  */
-export interface DirectoryTreeNode {
-  [key: string]: DirectoryTreeNode | FileMetadata[] | undefined;
-  /** Files in the current directory */
+export type DirectoryTree = {
+  [key: string]: DirectoryTree | FileMetadata[] | undefined;
   _files?: FileMetadata[];
-}
+};
 
-/**
- * Root type for directory tree structure.
- */
-export type DirectoryTree = DirectoryTreeNode;
+export const DirectoryTreeSchema: z.ZodType<DirectoryTree> = z.lazy(() =>
+  z.record(
+    z.string(),
+    z.union([z.lazy(() => DirectoryTreeSchema), z.array(FileMetadataSchema), z.undefined()]),
+  ),
+);
 
 /**
  * Authentication data for secure API requests.
  */
-export interface AuthData {
-  /** Unique user identifier */
-  userId: string;
-  /** HMAC signature for request verification */
-  signature: string;
-  /** Unix timestamp when the authentication expires */
-  expiresAt: number;
-}
+export const AuthDataSchema = z.object({
+  userId: z.string().describe("Unique user identifier"),
+  signature: z.string().describe("HMAC signature for request verification"),
+  expiresAt: z.number().int().describe("Unix timestamp when the authentication expires"),
+});
+
+export type AuthData = z.infer<typeof AuthDataSchema>;
 
 /**
  * Proof-of-work challenge parameters for captcha verification.
  */
-export interface Challenge {
-  /** Count: number of hash challenges to solve */
-  c: number;
-  /** Salt length: length of the random salt string in hex characters */
-  s: number;
-  /** Difficulty: number of leading hex characters the hash must match */
-  d: number;
-}
+export const ChallengeSchema = z.object({
+  c: z.number().int().positive().describe("Count: number of hash challenges to solve"),
+  s: z
+    .number()
+    .int()
+    .positive()
+    .describe("Salt length: length of the random salt string in hex characters"),
+  d: z
+    .number()
+    .int()
+    .positive()
+    .describe("Difficulty: number of leading hex characters the hash must match"),
+});
+
+export type Challenge = z.infer<typeof ChallengeSchema>;
 
 /**
  * Server-side data injected into the captcha page for challenge solving.
  */
-export interface CaptchaPageData {
-  /** The proof-of-work challenge to solve */
-  challenge: Challenge;
-  /** Unique token for this captcha session */
-  token: string;
-  /** HMAC signature for verification */
-  signature: string;
-  /** User identifier requesting the file */
-  userId: string;
-  /** File identifier being requested */
-  fileId: string;
-}
+export const CaptchaPageDataSchema = z.object({
+  challenge: ChallengeSchema.describe("The proof-of-work challenge to solve"),
+  token: z.string().describe("Unique token for this captcha session"),
+  signature: z.string().describe("HMAC signature for verification"),
+  userId: z.string().describe("User identifier requesting the file"),
+  fileId: z.string().describe("File identifier being requested"),
+});
+
+export type CaptchaPageData = z.infer<typeof CaptchaPageDataSchema>;
 
 /**
  * Server-side data injected into the file management page.
  */
-export interface ManagePageData {
-  /** Unique user identifier */
-  userId: string;
-  /** HMAC signature for request verification */
-  signature: string;
-  /** Unix timestamp when the authentication expires */
-  expiresAt: number;
-  /** Complete directory tree structure with all indexed files */
-  directoryTree: DirectoryTree;
-}
+export const ManagePageDataSchema = z.object({
+  userId: z.string().describe("Unique user identifier"),
+  signature: z.string().describe("HMAC signature for request verification"),
+  expiresAt: z.number().int().describe("Unix timestamp when the authentication expires"),
+  directoryTree: DirectoryTreeSchema.describe(
+    "Complete directory tree structure with all indexed files",
+  ),
+});
+
+export type ManagePageData = z.infer<typeof ManagePageDataSchema>;
 
 /**
  * Response from the file upload endpoint.
  */
-export interface UploadResponse {
-  /** Whether the upload succeeded */
-  success: boolean;
-  /** Error message if upload failed */
-  error?: string;
-  /** ID of the uploaded file if successful */
-  fileId?: string;
-}
+export const UploadResponseSchema = z.object({
+  success: z.boolean().describe("Whether the upload succeeded"),
+  error: z.string().optional().describe("Error message if upload failed"),
+  fileId: z.string().optional().describe("ID of the uploaded file if successful"),
+});
+
+export type UploadResponse = z.infer<typeof UploadResponseSchema>;
 
 /**
  * Response from the file deletion endpoint.
  */
-export interface DeleteResponse {
-  /** Whether the deletion succeeded */
-  success: boolean;
-  /** Error message if deletion failed */
-  error?: string;
-}
+export const DeleteResponseSchema = z.object({
+  success: z.boolean().describe("Whether the deletion succeeded"),
+  error: z.string().optional().describe("Error message if deletion failed"),
+});
+
+export type DeleteResponse = z.infer<typeof DeleteResponseSchema>;
+
+/**
+ * Request body for the captcha verification endpoint.
+ */
+export const VerifyRequestSchema = z.object({
+  userId: z.string().min(1).describe("User identifier requesting the file"),
+  fileId: z.string().min(1).describe("File identifier being requested"),
+  token: z.string().min(1).describe("Unique token for this captcha session"),
+  challenge: z.string().min(1).describe("Serialized challenge data"),
+  signature: z.string().min(1).describe("HMAC signature for verification"),
+  solution: z.string().min(1).describe("Comma-separated list of challenge solutions"),
+});
+
+export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;
 
 /**
  * Response from the captcha verification endpoint.
  */
-export interface VerifyResponse {
-  /** Error message if verification failed */
-  error?: string;
-}
+export const VerifyResponseSchema = z.object({
+  error: z.string().optional().describe("Error message if verification failed"),
+});
+
+export type VerifyResponse = z.infer<typeof VerifyResponseSchema>;
+
+/**
+ * Query parameters for the file deletion endpoint.
+ */
+export const DeleteQueryParamsSchema = z.object({
+  userId: z.string().min(1).describe("User identifier"),
+  signature: z.string().min(1).describe("HMAC signature for authentication"),
+  expiresAt: z.string().min(1).describe("Unix timestamp when authentication expires"),
+});
+
+export type DeleteQueryParams = z.infer<typeof DeleteQueryParamsSchema>;
+
+/**
+ * Form fields for the file upload endpoint.
+ */
+export const UploadFormFieldsSchema = z.object({
+  userId: z.string().min(1).describe("User identifier"),
+  signature: z.string().min(1).describe("HMAC signature for authentication"),
+  expiresAt: z.string().min(1).describe("Unix timestamp when authentication expires"),
+  directory: z.string().default("").describe("Target directory for upload (optional)"),
+});
+
+export type UploadFormFields = z.infer<typeof UploadFormFieldsSchema>;

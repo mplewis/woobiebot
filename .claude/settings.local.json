@@ -43,7 +43,8 @@
       "Bash(pnpm build:backend:*)",
       "Bash(pnpm build)",
       "Bash(pnpm start)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

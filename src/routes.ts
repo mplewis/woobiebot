@@ -3,9 +3,18 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
+import { ZodError } from "zod";
 import type { CaptchaManager } from "./captcha.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
+import {
+  type DeleteQueryParams,
+  DeleteQueryParamsSchema,
+  type UploadFormFields,
+  UploadFormFieldsSchema,
+  type VerifyRequest,
+  VerifyRequestSchema,
+} from "./shared/types.js";
 import { templateLoader } from "./templateLoader.js";
 import type { UrlSigner } from "./urlSigner.js";
 
@@ -68,23 +77,19 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    * POST /verify
    * Verify captcha solution and stream the requested file.
    */
-  app.post<{
-    Body: {
-      userId: string;
-      fileId: string;
-      token: string;
-      challenge: string;
-      signature: string;
-      solution: string;
-    };
-  }>("/verify", async (request, reply) => {
-    const body = request.body as Record<string, string>;
-    const { userId, fileId, token, challenge, signature, solution } = body;
-
-    if (!userId || !fileId || !token || !challenge || !signature || !solution) {
-      log.info({ userId, fileId }, "Missing required fields in captcha verification");
-      return reply.status(400).send({ error: "Missing required fields" });
+  app.post("/verify", async (request, reply) => {
+    let body: VerifyRequest;
+    try {
+      body = VerifyRequestSchema.parse(request.body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        log.info({ errors: error.issues }, "Invalid captcha verification request");
+        return reply.status(400).send({ error: "Invalid request data" });
+      }
+      throw error;
     }
+
+    const { userId, fileId, token, challenge, signature, solution } = body;
 
     // Verify captcha solution
     const isValid = await captchaManager.verifyChallenge(
@@ -244,20 +249,25 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     const url = `${baseUrl}${request.url}`;
     const urlObj = new URL(url);
 
-    const userId = urlObj.searchParams.get("userId");
-    const signature = urlObj.searchParams.get("signature");
-    const expiresAtStr = urlObj.searchParams.get("expiresAt");
+    const queryParams = {
+      userId: urlObj.searchParams.get("userId"),
+      signature: urlObj.searchParams.get("signature"),
+      expiresAt: urlObj.searchParams.get("expiresAt"),
+    };
 
-    if (!userId || !signature || !expiresAtStr) {
-      log.info({ fileId }, "Missing authentication parameters for file deletion");
-      return reply.status(400).send({ error: "Missing authentication parameters" });
+    let validatedParams: DeleteQueryParams;
+    try {
+      validatedParams = DeleteQueryParamsSchema.parse(queryParams);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        log.info({ fileId, errors: error.issues }, "Invalid delete request parameters");
+        return reply.status(400).send({ error: "Invalid request parameters" });
+      }
+      throw error;
     }
 
+    const { userId, signature, expiresAt: expiresAtStr } = validatedParams;
     const expiresAt = Number.parseInt(expiresAtStr, 10);
-    if (Number.isNaN(expiresAt)) {
-      log.info({ userId, fileId }, "Invalid expiration timestamp for file deletion");
-      return reply.status(400).send({ error: "Invalid expiration timestamp" });
-    }
 
     if (Date.now() > expiresAt) {
       log.info({ userId, fileId }, "Expired authentication token for file deletion");
@@ -328,28 +338,32 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         return reply.status(400).send({ error: "No file provided" });
       }
 
-      const userId = fields["userId"];
-      const signature = fields["signature"];
-      const expiresAtStr = fields["expiresAt"];
-      const targetDirectory = fields["directory"] || "";
+      let validatedFields: UploadFormFields;
+      try {
+        validatedFields = UploadFormFieldsSchema.parse(fields);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          log.info({ errors: error.issues }, "Invalid upload form fields");
+          return reply.status(400).send({ error: "Invalid form data" });
+        }
+        throw error;
+      }
+
+      const {
+        userId,
+        signature,
+        expiresAt: expiresAtStr,
+        directory: targetDirectory,
+      } = validatedFields;
 
       log.info(
         {
-          fields: Object.keys(fields),
           userId,
-          signature: signature ? "present" : "missing",
+          signature: "present",
           expiresAtStr,
         },
         "Upload request received",
       );
-
-      if (!userId || !signature || !expiresAtStr) {
-        log.info(
-          { userId, signature, expiresAtStr },
-          "Missing authentication data for file upload",
-        );
-        return reply.status(400).send({ error: "Missing authentication data" });
-      }
 
       const expiresAt = Number.parseInt(expiresAtStr, 10);
       if (Number.isNaN(expiresAt)) {

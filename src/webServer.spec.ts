@@ -257,7 +257,7 @@ it("returns 400 for missing fields", async () => {
   });
 
   expect(response.statusCode).toBe(400);
-  expect(response.json()).toEqual({ error: "Missing required fields" });
+  expect(response.json()).toEqual({ error: "Invalid request data" });
 });
 
 it("returns 403 for invalid captcha solution", async () => {
