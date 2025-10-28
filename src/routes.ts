@@ -12,6 +12,13 @@ import { type VerifyRequest, VerifyRequestSchema } from "./shared/types.js";
 import type { UrlSigner } from "./urlSigner.js";
 
 /**
+ * Converts bytes to megabytes with 2 decimal places.
+ */
+function bytesToMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(2);
+}
+
+/**
  * Generates a unique filename by appending a numeric suffix if the file already exists.
  * For example: myfile.ext -> myfile_1.ext -> myfile_2.ext
  */
@@ -194,7 +201,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const userId = request.manageAuth.userId;
+    const { userId } = request.manageAuth;
 
     const file = indexer.getById(fileId);
     if (!file) {
@@ -237,35 +244,44 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const userId = request.manageAuth.userId;
+    const { userId } = request.manageAuth;
+    const deleteLog = log.child({ feature: "manage", operation: "delete", userId, fileId });
 
     const file = indexer.getById(fileId);
     if (!file) {
-      log.info({ fileId, userId }, "File not found for deletion");
+      deleteLog.error({}, "Delete failed: file not found");
       return reply.status(404).send({ error: "File not found" });
     }
 
     if (!existsSync(file.absolutePath)) {
-      log.error({ fileId, path: file.absolutePath }, "File exists in index but not on disk");
+      const errorMessage = "File exists in index but not on disk";
+      deleteLog.error({ name: file.name, errorMessage }, "Delete failed due to disk error");
       return reply.status(500).send({ error: "File temporarily unavailable" });
     }
 
     try {
+      const stats = statSync(file.absolutePath);
+      const fileSizeMB = bytesToMB(stats.size);
       const directory = dirname(file.absolutePath);
       const filename = basename(file.absolutePath);
       const hiddenPath = join(directory, `.${filename}`);
+      const path = file.path.substring(0, file.path.lastIndexOf("/")) || "/";
 
       await rename(file.absolutePath, hiddenPath);
-      log.info(
-        { userId, fileId, filename: file.name, oldPath: file.absolutePath, newPath: hiddenPath },
-        "File hidden (fake deleted)",
-      );
+      deleteLog.info({ name: file.name, fileSizeMB, path }, "File deleted");
 
       await indexer.rescan();
 
       return reply.send({ success: true, message: "File deleted successfully" });
     } catch (error) {
-      log.error({ userId, fileId, error }, "Failed to delete file");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const stats = statSync(file.absolutePath);
+      const fileSizeMB = bytesToMB(stats.size);
+      const path = file.path.substring(0, file.path.lastIndexOf("/")) || "/";
+      deleteLog.error(
+        { name: file.name, fileSizeMB, path, errorMessage },
+        "Delete failed due to disk error",
+      );
       return reply.status(500).send({ error: "Failed to delete file" });
     }
   });
@@ -275,10 +291,11 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    * Handle file uploads to the managed directory.
    */
   app.post("/manage/upload", async (request, reply) => {
+    const fields: Record<string, string> = {};
+    let fileData: { filename: string; buffer: Buffer } | null = null;
+
     try {
       const parts = request.parts();
-      const fields: Record<string, string> = {};
-      let fileData: { filename: string; buffer: Buffer } | null = null;
 
       for await (const part of parts) {
         if (part.type === "file") {
@@ -300,7 +317,8 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         return reply.status(500).send({ error: "Authentication context not set" });
       }
 
-      const userId = request.manageAuth.userId;
+      const { userId } = request.manageAuth;
+      const uploadLog = log.child({ feature: "manage", operation: "upload", userId });
 
       if (!fileData) {
         log.info("No file provided in upload request");
@@ -308,14 +326,6 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       }
 
       const { directory: targetDirectory = "" } = fields;
-
-      log.info(
-        {
-          userId,
-          targetDirectory,
-        },
-        "Upload request received",
-      );
 
       // Validate file extension
       const fileExtension = fileData.filename
@@ -325,9 +335,11 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
 
       if (!normalizedAllowedExtensions.includes(fileExtension)) {
         const allowedList = allowedExtensions.join(", ");
-        log.info(
-          { userId, filename: fileData.filename, extension: fileExtension },
-          "File extension not allowed",
+        const fileSizeMB = bytesToMB(fileData.buffer.length);
+        const path = targetDirectory || "/";
+        uploadLog.error(
+          { name: fileData.filename, fileSizeMB, path },
+          "Upload rejected due to extension not allowed",
         );
         return reply.status(400).send({
           error: `File type ${fileExtension} is not allowed. Allowed types: ${allowedList}`,
@@ -344,15 +356,9 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
 
       await writeFile(targetPath, fileData.buffer);
 
-      log.info(
-        {
-          userId,
-          originalFilename: fileData.filename,
-          savedFilename: uniqueFilename,
-          path: targetPath,
-        },
-        "File uploaded successfully",
-      );
+      const fileSizeMB = bytesToMB(fileData.buffer.length);
+      const path = sanitizedDir || "/";
+      uploadLog.info({ name: uniqueFilename, fileSizeMB, path }, "File uploaded");
 
       await indexer.rescan();
 
@@ -363,7 +369,20 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         path: sanitizedDir ? `${sanitizedDir}/${uniqueFilename}` : uniqueFilename,
       });
     } catch (err) {
-      log.error({ err }, "File upload failed");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (request.manageAuth && fileData) {
+        const { userId } = request.manageAuth;
+        const uploadLog = log.child({ feature: "manage", operation: "upload", userId });
+        const fileSizeMB = bytesToMB(fileData.buffer.length);
+        const { directory: targetDirectory = "" } = fields;
+        const path = targetDirectory || "/";
+        uploadLog.error(
+          { name: fileData.filename, fileSizeMB, path, errorMessage },
+          "Upload failed due to disk error",
+        );
+      } else {
+        log.error({ err }, "File upload failed");
+      }
       return reply.status(500).send({ error: "File upload failed" });
     }
   });
@@ -433,7 +452,7 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const userId = request.manageAuth.userId;
+    const { userId } = request.manageAuth;
     const expiresAt = request.manageAuth.expiresAt;
     const query = request.query as Record<string, unknown>;
     const signature = query["signature"] as string;
