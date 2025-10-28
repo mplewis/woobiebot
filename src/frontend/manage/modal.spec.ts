@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { JSDOM } from "jsdom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,26 +12,10 @@ describe("Delete Modal", () => {
   let window: Window & typeof globalThis;
 
   beforeEach(() => {
-    dom = new JSDOM(
-      `<!DOCTYPE html>
-      <html>
-        <body>
-          <div id="delete-modal" class="delete-modal">
-            <div class="delete-modal-content">
-              <h3>Delete File</h3>
-              <p>Are you sure you want to delete <span class="filename" id="delete-filename"></span>?</p>
-              <input type="text" id="delete-confirm-input" />
-              <div class="delete-modal-buttons">
-                <button id="delete-cancel-btn">Cancel</button>
-                <button id="delete-confirm-btn" disabled>Delete File</button>
-              </div>
-            </div>
-          </div>
-          <div id="status" class="status"></div>
-        </body>
-      </html>`,
-      { url: "http://localhost" },
-    );
+    const htmlPath = join(__dirname, "../manage.html");
+    const htmlContent = readFileSync(htmlPath, "utf-8");
+
+    dom = new JSDOM(htmlContent, { url: "http://localhost" });
 
     document = dom.window.document;
     window = dom.window as Window & typeof globalThis;
