@@ -49,6 +49,8 @@ const DEFAULT_CONFIG = {
   MAX_FILE_SIZE_MB: 1,
   LOG_LEVEL: "error",
   NODE_ENV: "test",
+  DISCORD_LOGGING_LEVEL: "error",
+  DISCORD_LOGGING_TAGS: new Map<string, string[]>(),
 } as const;
 
 /**
