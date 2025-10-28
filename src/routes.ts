@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
 import { ZodError } from "zod";
@@ -16,6 +16,26 @@ import {
   VerifyRequestSchema,
 } from "./shared/types.js";
 import type { UrlSigner } from "./urlSigner.js";
+
+/**
+ * Generates a unique filename by appending a numeric suffix if the file already exists.
+ * For example: myfile.ext -> myfile_1.ext -> myfile_2.ext
+ */
+function getUniqueFilename(directory: string, filename: string): string {
+  const ext = extname(filename);
+  const nameWithoutExt = basename(filename, ext);
+
+  let targetPath = join(directory, filename);
+  let counter = 1;
+
+  while (existsSync(targetPath)) {
+    const newFilename = `${nameWithoutExt}_${counter}${ext}`;
+    targetPath = join(directory, newFilename);
+    counter++;
+  }
+
+  return basename(targetPath);
+}
 
 /**
  * Dependencies required for registering HTTP routes.
@@ -398,14 +418,22 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       }
 
       const sanitizedDir = targetDirectory.replace(/\.\./g, "").replace(/^\/+/, "");
-      const targetPath = join(indexer["directory"], sanitizedDir, fileData.filename);
-      const targetDir = dirname(targetPath);
+      const targetDir = join(indexer["directory"], sanitizedDir);
 
       await mkdir(targetDir, { recursive: true });
+
+      const uniqueFilename = getUniqueFilename(targetDir, fileData.filename);
+      const targetPath = join(targetDir, uniqueFilename);
+
       await writeFile(targetPath, fileData.buffer);
 
       log.info(
-        { userId, filename: fileData.filename, path: targetPath },
+        {
+          userId,
+          originalFilename: fileData.filename,
+          savedFilename: uniqueFilename,
+          path: targetPath,
+        },
         "File uploaded successfully",
       );
 
@@ -414,8 +442,8 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       return reply.send({
         success: true,
         message: "File uploaded successfully",
-        filename: fileData.filename,
-        path: sanitizedDir ? `${sanitizedDir}/${fileData.filename}` : fileData.filename,
+        filename: uniqueFilename,
+        path: sanitizedDir ? `${sanitizedDir}/${uniqueFilename}` : uniqueFilename,
       });
     } catch (err) {
       log.error({ err }, "File upload failed");
