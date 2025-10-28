@@ -21,8 +21,8 @@
     "lint": "biome check .",
     "prepare": "lefthook install || true",
     "start": "node dist/index.js",
-    "test:run": "vitest --run --coverage",
-    "test": "vitest"
+    "test:run": "pnpm build && vitest --run --coverage",
+    "test": "pnpm build && vitest"
   },
   "dependencies": {
     "@cap.js/server": "^4.0.2",
