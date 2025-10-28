@@ -163,3 +163,16 @@ export const UploadFormFieldsSchema = z.object({
 });
 
 export type UploadFormFields = z.infer<typeof UploadFormFieldsSchema>;
+
+/**
+ * Fastify request type augmentation for management authentication.
+ * Adds manageAuth context to requests after successful middleware verification.
+ */
+declare module "fastify" {
+  interface FastifyRequest {
+    manageAuth?: {
+      userId: string;
+      expiresAt: number;
+    };
+  }
+}

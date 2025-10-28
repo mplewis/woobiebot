@@ -74,7 +74,7 @@ it("returns 400 when authentication parameters are missing", async () => {
   });
 
   expect(response.statusCode).toBe(400);
-  expect(response.json()).toEqual({ error: "Invalid request parameters" });
+  expect(response.json()).toEqual({ error: "Missing authentication parameters" });
 });
 
 it("returns 400 when expiration timestamp is invalid", async () => {
@@ -103,8 +103,8 @@ it("returns 400 when expiration timestamp is invalid", async () => {
     url: `/manage/delete/${file.id}?userId=${userId}&signature=${signature}&expiresAt=not-a-number`,
   });
 
-  expect(response.statusCode).toBe(403);
-  expect(response.json()).toEqual({ error: "Invalid authentication signature" });
+  expect(response.statusCode).toBe(400);
+  expect(response.json()).toEqual({ error: "Invalid expiration timestamp" });
 });
 
 it("returns 403 when authentication token has expired", async () => {

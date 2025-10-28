@@ -190,7 +190,7 @@ it("returns 400 when manage data API is missing parameters", async () => {
 
   expect(response.statusCode).toBe(400);
   const data = JSON.parse(response.body);
-  expect(data).toHaveProperty("error", "Missing required parameters");
+  expect(data).toHaveProperty("error", "Missing authentication parameters");
 });
 
 it("returns 403 when manage data API has invalid signature", async () => {

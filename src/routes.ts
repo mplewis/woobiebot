@@ -4,17 +4,11 @@ import { basename, dirname, extname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
 import { ZodError } from "zod";
+import { createManageAuthHook } from "./authMiddleware.js";
 import type { CaptchaManager } from "./captcha.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
-import {
-  type DeleteQueryParams,
-  DeleteQueryParamsSchema,
-  type UploadFormFields,
-  UploadFormFieldsSchema,
-  type VerifyRequest,
-  VerifyRequestSchema,
-} from "./shared/types.js";
+import { type VerifyRequest, VerifyRequestSchema } from "./shared/types.js";
 import type { UrlSigner } from "./urlSigner.js";
 
 /**
@@ -65,6 +59,8 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
     allowedExtensions,
     maxFileSizeMB,
   } = deps;
+
+  const manageAuthHook = createManageAuthHook(urlSigner, baseUrl, log);
 
   /**
    * GET /download
@@ -191,39 +187,14 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    * GET /manage/download/:fileId
    * Direct download for authenticated manage users (bypasses captcha).
    */
-  app.get("/manage/download/:fileId", async (request, reply) => {
+  app.get("/manage/download/:fileId", { preHandler: manageAuthHook }, async (request, reply) => {
     const { fileId } = request.params as { fileId: string };
-    const url = `${baseUrl}${request.url}`;
-    const urlObj = new URL(url);
 
-    const userId = urlObj.searchParams.get("userId");
-    const signature = urlObj.searchParams.get("signature");
-    const expiresAtStr = urlObj.searchParams.get("expiresAt");
-
-    if (!userId || !signature || !expiresAtStr) {
-      log.info({ fileId }, "Missing authentication parameters for manage download");
-      return reply.status(400).send({ error: "Missing authentication parameters" });
+    if (!request.manageAuth) {
+      return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const expiresAt = Number.parseInt(expiresAtStr, 10);
-    if (Number.isNaN(expiresAt)) {
-      log.info({ userId, fileId }, "Invalid expiration timestamp for manage download");
-      return reply.status(400).send({ error: "Invalid expiration timestamp" });
-    }
-
-    if (Date.now() > expiresAt) {
-      log.info({ userId, fileId }, "Expired authentication token for manage download");
-      return reply.status(403).send({ error: "Authentication token has expired" });
-    }
-
-    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
-    const manageUrlObj = new URL(manageUrl);
-    const expectedSignature = manageUrlObj.searchParams.get("signature");
-
-    if (signature !== expectedSignature) {
-      log.info({ userId, fileId }, "Invalid download signature");
-      return reply.status(403).send({ error: "Invalid authentication signature" });
-    }
+    const userId = request.manageAuth.userId;
 
     const file = indexer.getById(fileId);
     if (!file) {
@@ -259,44 +230,14 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    * DELETE /manage/delete/:fileId
    * Delete a file for authenticated manage users.
    */
-  app.delete("/manage/delete/:fileId", async (request, reply) => {
+  app.delete("/manage/delete/:fileId", { preHandler: manageAuthHook }, async (request, reply) => {
     const { fileId } = request.params as { fileId: string };
-    const url = `${baseUrl}${request.url}`;
-    const urlObj = new URL(url);
 
-    const queryParams = {
-      userId: urlObj.searchParams.get("userId"),
-      signature: urlObj.searchParams.get("signature"),
-      expiresAt: urlObj.searchParams.get("expiresAt"),
-    };
-
-    let validatedParams: DeleteQueryParams;
-    try {
-      validatedParams = DeleteQueryParamsSchema.parse(queryParams);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        log.info({ fileId, errors: error.issues }, "Invalid delete request parameters");
-        return reply.status(400).send({ error: "Invalid request parameters" });
-      }
-      throw error;
+    if (!request.manageAuth) {
+      return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const { userId, signature, expiresAt: expiresAtStr } = validatedParams;
-    const expiresAt = Number.parseInt(expiresAtStr, 10);
-
-    if (Date.now() > expiresAt) {
-      log.info({ userId, fileId }, "Expired authentication token for file deletion");
-      return reply.status(403).send({ error: "Authentication token has expired" });
-    }
-
-    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
-    const manageUrlObj = new URL(manageUrl);
-    const expectedSignature = manageUrlObj.searchParams.get("signature");
-
-    if (signature !== expectedSignature) {
-      log.info({ userId, fileId }, "Invalid delete signature");
-      return reply.status(403).send({ error: "Invalid authentication signature" });
-    }
+    const userId = request.manageAuth.userId;
 
     const file = indexer.getById(fileId);
     if (!file) {
@@ -348,57 +289,33 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         }
       }
 
+      request.body = fields;
+      await manageAuthHook(request, reply);
+
+      if (reply.sent) {
+        return;
+      }
+
+      if (!request.manageAuth) {
+        return reply.status(500).send({ error: "Authentication context not set" });
+      }
+
+      const userId = request.manageAuth.userId;
+
       if (!fileData) {
         log.info("No file provided in upload request");
         return reply.status(400).send({ error: "No file provided" });
       }
 
-      let validatedFields: UploadFormFields;
-      try {
-        validatedFields = UploadFormFieldsSchema.parse(fields);
-      } catch (error) {
-        if (error instanceof ZodError) {
-          log.info({ errors: error.issues }, "Invalid upload form fields");
-          return reply.status(400).send({ error: "Invalid form data" });
-        }
-        throw error;
-      }
-
-      const {
-        userId,
-        signature,
-        expiresAt: expiresAtStr,
-        directory: targetDirectory,
-      } = validatedFields;
+      const { directory: targetDirectory = "" } = fields;
 
       log.info(
         {
           userId,
-          signature: "present",
-          expiresAtStr,
+          targetDirectory,
         },
         "Upload request received",
       );
-
-      const expiresAt = Number.parseInt(expiresAtStr, 10);
-      if (Number.isNaN(expiresAt)) {
-        log.info({ userId }, "Invalid expiration timestamp for file upload");
-        return reply.status(400).send({ error: "Invalid expiration timestamp" });
-      }
-
-      if (Date.now() > expiresAt) {
-        log.info({ userId }, "Expired authentication token for file upload");
-        return reply.status(403).send({ error: "Authentication token has expired" });
-      }
-
-      const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
-      const urlObj = new URL(manageUrl);
-      const expectedSignature = urlObj.searchParams.get("signature");
-
-      if (signature !== expectedSignature) {
-        log.info({ userId }, "Invalid upload signature");
-        return reply.status(403).send({ error: "Invalid authentication signature" });
-      }
 
       // Validate file extension
       const fileExtension = fileData.filename
@@ -511,38 +428,15 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
    * GET /api/manage
    * Provide manage page data via API for client-side rendering.
    */
-  app.get("/api/manage", async (request, reply) => {
-    const url = `${baseUrl}${request.url}`;
-    const urlObj = new URL(url);
-
-    const userId = urlObj.searchParams.get("userId");
-    const signature = urlObj.searchParams.get("signature");
-    const expiresAtStr = urlObj.searchParams.get("expiresAt");
-
-    if (!userId || !signature || !expiresAtStr) {
-      log.info({ url }, "Missing required parameters for manage data API");
-      return reply.status(400).send({ error: "Missing required parameters" });
+  app.get("/api/manage", { preHandler: manageAuthHook }, async (request, reply) => {
+    if (!request.manageAuth) {
+      return reply.status(500).send({ error: "Authentication context not set" });
     }
 
-    const expiresAt = Number.parseInt(expiresAtStr, 10);
-    if (Number.isNaN(expiresAt)) {
-      log.info({ userId }, "Invalid expiration timestamp for manage data API");
-      return reply.status(400).send({ error: "Invalid expiration timestamp" });
-    }
-
-    if (Date.now() > expiresAt) {
-      log.info({ userId }, "Expired authentication token for manage data API");
-      return reply.status(403).send({ error: "Authentication token has expired" });
-    }
-
-    const manageUrl = urlSigner.signManageUrl(baseUrl, userId, expiresAt - Date.now());
-    const manageUrlObj = new URL(manageUrl);
-    const expectedSignature = manageUrlObj.searchParams.get("signature");
-
-    if (signature !== expectedSignature) {
-      log.info({ userId }, "Invalid signature for manage data API");
-      return reply.status(403).send({ error: "Invalid authentication signature" });
-    }
+    const userId = request.manageAuth.userId;
+    const expiresAt = request.manageAuth.expiresAt;
+    const query = request.query as Record<string, unknown>;
+    const signature = query["signature"] as string;
 
     const directoryTree = indexer.getDirectoryTree();
 
