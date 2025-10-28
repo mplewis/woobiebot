@@ -137,11 +137,10 @@ export function registerPublicRoutes(app: FastifyInstance, deps: PublicRoutesDep
 
     const userId = urlObj.searchParams.get("userId");
     const fileId = urlObj.searchParams.get("fileId");
-    const token = urlObj.searchParams.get("token");
-    const sig = urlObj.searchParams.get("sig");
+    const signature = urlObj.searchParams.get("signature");
     const expiresAtStr = urlObj.searchParams.get("expiresAt");
 
-    if (!userId || !fileId || !token || !sig || !expiresAtStr) {
+    if (!userId || !fileId || !signature || !expiresAtStr) {
       log.info({ url }, "Missing required parameters for captcha data API");
       return reply.status(400).send({ error: "Missing required parameters" });
     }
@@ -159,9 +158,9 @@ export function registerPublicRoutes(app: FastifyInstance, deps: PublicRoutesDep
 
     const downloadUrl = urlSigner.signDownloadUrl(baseUrl, userId, fileId, expiresAt - Date.now());
     const downloadUrlObj = new URL(downloadUrl);
-    const expectedSig = downloadUrlObj.searchParams.get("signature");
+    const expectedSignature = downloadUrlObj.searchParams.get("signature");
 
-    if (sig !== expectedSig) {
+    if (signature !== expectedSignature) {
       log.info({ url }, "Invalid signature for captcha data API");
       return reply.status(403).send({ error: "Invalid signature" });
     }

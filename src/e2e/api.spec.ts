@@ -31,17 +31,16 @@ it("returns captcha data from API endpoint", async () => {
 
   const downloadUrl = ctx.server.generateDownloadUrl(userId, fileId);
   const downloadUrlObj = new URL(downloadUrl);
-  const sig = downloadUrlObj.searchParams.get("signature");
+  const signature = downloadUrlObj.searchParams.get("signature");
   const expiresAt = downloadUrlObj.searchParams.get("expiresAt");
-  const token = "test-token-123";
 
-  if (!sig || !expiresAt) {
+  if (!signature || !expiresAt) {
     throw new Error("Failed to generate download URL");
   }
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=${userId}&fileId=${fileId}&signature=${signature}&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(200);
@@ -72,7 +71,7 @@ it("returns 403 when captcha data API has invalid signature", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha?userId=user123&fileId=file123&token=token123&sig=invalid&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=user123&fileId=file123&signature=invalid&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -86,17 +85,16 @@ it("returns 404 when captcha data API requests non-existent file", async () => {
 
   const downloadUrl = ctx.server.generateDownloadUrl(userId, nonExistentFileId);
   const downloadUrlObj = new URL(downloadUrl);
-  const sig = downloadUrlObj.searchParams.get("signature");
+  const signature = downloadUrlObj.searchParams.get("signature");
   const expiresAt = downloadUrlObj.searchParams.get("expiresAt");
-  const token = "test-token-123";
 
-  if (!sig || !expiresAt) {
+  if (!signature || !expiresAt) {
     throw new Error("Failed to generate download URL");
   }
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha?userId=${userId}&fileId=${nonExistentFileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=${userId}&fileId=${nonExistentFileId}&signature=${signature}&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(404);
@@ -121,17 +119,16 @@ it("returns 403 when captcha data API has expired token", async () => {
   const fileId = file.id;
   const downloadUrl = ctx.server.generateDownloadUrl(userId, fileId);
   const downloadUrlObj = new URL(downloadUrl);
-  const sig = downloadUrlObj.searchParams.get("signature");
-  const token = "test-token-123";
+  const signature = downloadUrlObj.searchParams.get("signature");
   const expiredTime = Date.now() - 1000;
 
-  if (!sig) {
+  if (!signature) {
     throw new Error("Failed to generate download URL");
   }
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiredTime}`,
+    url: `/api/captcha?userId=${userId}&fileId=${fileId}&signature=${signature}&expiresAt=${expiredTime}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -142,7 +139,7 @@ it("returns 403 when captcha data API has expired token", async () => {
 it("returns 400 when captcha data API has invalid expiresAt format", async () => {
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: "/api/captcha?userId=user123&fileId=file123&token=token123&sig=sig123&expiresAt=not-a-number",
+    url: "/api/captcha?userId=user123&fileId=file123&signature=sig123&expiresAt=not-a-number",
   });
 
   expect(response.statusCode).toBe(400);
