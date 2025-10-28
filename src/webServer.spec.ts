@@ -32,6 +32,7 @@ beforeEach(async () => {
     WEB_SERVER_BASE_URL: "http://localhost:3001",
     SIGNING_SECRET: "test-signing-secret-key-must-be-long-enough",
     URL_EXPIRY_SEC: 600,
+    MANAGE_URL_EXPIRY_SEC: 3600,
     CAPTCHA_CHALLENGE_COUNT: 50,
     CAPTCHA_DIFFICULTY: 4,
     DOWNLOADS_PER_HR: 10,
@@ -39,6 +40,7 @@ beforeEach(async () => {
     SEARCH_MIN_CHARS: 3,
     SEARCH_THRESHOLD: 0.6,
     SCAN_INTERVAL_MINS: 15,
+    MAX_FILE_SIZE_MB: 1,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
     DISCORD_LOGGING_LEVEL: "error" as const,
@@ -108,7 +110,8 @@ it("returns captcha page for valid signed URL", async () => {
 
   expect(response.statusCode).toBe(200);
   expect(response.headers["content-type"]).toContain("text/html");
-  expect(response.body).toContain("Just a moment...");
+  expect(response.body).toContain("<!doctype html>");
+  expect(response.body).toContain("/public/assets/captcha-"); // Check for hashed filename
 });
 
 it("returns 403 for invalid signature", async () => {
@@ -257,7 +260,7 @@ it("returns 400 for missing fields", async () => {
   });
 
   expect(response.statusCode).toBe(400);
-  expect(response.json()).toEqual({ error: "Missing required fields" });
+  expect(response.json()).toEqual({ error: "Invalid request data" });
 });
 
 it("returns 403 for invalid captcha solution", async () => {

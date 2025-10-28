@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import fastifyFormBody from "@fastify/formbody";
+import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Logger } from "pino";
@@ -8,9 +9,12 @@ import type { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes } from "./routes/index.js";
 import { UrlSigner } from "./urlSigner.js";
 
+/**
+ * Dependencies required for initializing the web server.
+ */
 export interface WebServerDependencies {
   config: Config;
   captchaManager: CaptchaManager;
@@ -39,6 +43,11 @@ export class WebServer {
     });
 
     this.app.register(fastifyFormBody);
+    this.app.register(fastifyMultipart, {
+      limits: {
+        fileSize: deps.config.MAX_FILE_SIZE_MB * 1024 * 1024,
+      },
+    });
     this.setupErrorHandler();
     this.setupStaticFiles();
     this.setupRoutes(deps);
@@ -66,8 +75,11 @@ export class WebServer {
     });
   }
 
+  /**
+   * Register static file serving for the public directory containing built frontend assets.
+   */
   private setupStaticFiles(): void {
-    const publicDir = resolve(process.cwd(), "public");
+    const publicDir = resolve(process.cwd(), "dist", "public");
     if (existsSync(publicDir)) {
       this.app.register(fastifyStatic, {
         root: publicDir,
@@ -76,6 +88,9 @@ export class WebServer {
     }
   }
 
+  /**
+   * Register all HTTP routes with the Fastify application instance.
+   */
   private setupRoutes(deps: WebServerDependencies): void {
     registerRoutes(this.app, {
       urlSigner: this.urlSigner,
@@ -84,6 +99,8 @@ export class WebServer {
       indexer: deps.indexer,
       log: this.log,
       baseUrl: this.config.WEB_SERVER_BASE_URL,
+      allowedExtensions: this.config.FILE_EXTENSIONS,
+      maxFileSizeMB: this.config.MAX_FILE_SIZE_MB,
     });
   }
 
@@ -131,6 +148,17 @@ export class WebServer {
       userId,
       fileId,
       this.config.URL_EXPIRY_SEC * 1000,
+    );
+  }
+
+  /**
+   * Generate a signed management URL for a user.
+   */
+  generateManageUrl(userId: string): string {
+    return this.urlSigner.signManageUrl(
+      this.config.WEB_SERVER_BASE_URL,
+      userId,
+      this.config.MANAGE_URL_EXPIRY_SEC * 1000,
     );
   }
 

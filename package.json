@@ -9,7 +9,9 @@
   "license": "ISC",
   "packageManager": "pnpm@10.14.0",
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm build:backend && pnpm build:frontend",
+    "build:backend": "tsc",
+    "build:frontend": "vite build",
     "check": "tsc --noEmit && biome check . && prettier --check . && pnpm test:run",
     "check:fix": "tsc --noEmit && biome check --write . && prettier --write . && pnpm test:run",
     "dev": "pnpm build && pnpm start",
@@ -19,12 +21,13 @@
     "lint": "biome check .",
     "prepare": "lefthook install || true",
     "start": "node dist/index.js",
-    "test:run": "vitest --run --coverage",
-    "test": "vitest"
+    "test:run": "pnpm build && vitest --run --coverage",
+    "test": "pnpm build && vitest"
   },
   "dependencies": {
     "@cap.js/server": "^4.0.2",
     "@fastify/formbody": "^8.0.2",
+    "@fastify/multipart": "^9.2.1",
     "@fastify/static": "^8.2.0",
     "discord.js": "^14.23.2",
     "dotenv": "^17.2.3",
@@ -34,15 +37,19 @@
     "mime-types": "^3.0.1",
     "pino": "^10.0.0",
     "pino-pretty": "^13.1.1",
+    "vite": "^7.1.12",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@evilmartians/lefthook": "^1.13.6",
+    "@peculiar/webcrypto": "^1.5.0",
+    "@types/jsdom": "^27.0.0",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^24.7.1",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
+    "jsdom": "^27.0.1",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

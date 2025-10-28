@@ -38,7 +38,14 @@
       "Bash(xargs kill:*)",
       "mcp__fetch__imageFetch",
       "WebSearch",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(pnpm build:frontend:*)",
+      "Bash(pnpm build:backend:*)",
+      "Bash(pnpm build)",
+      "Bash(pnpm start)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(pnpm exec biome:*)"
     ],
     "deny": [],
     "ask": []

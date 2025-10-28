@@ -28,6 +28,21 @@ export class UrlSigner {
   }
 
   /**
+   * Generate a signed management URL with expiration for file upload interface.
+   */
+  signManageUrl(baseUrl: string, userId: string, expiresInMs: number): string {
+    const expiresAt = Date.now() + expiresInMs;
+    const signature = this.signManage(userId, expiresAt);
+
+    const url = new URL(`${baseUrl}/manage`);
+    url.searchParams.set("userId", userId);
+    url.searchParams.set("expiresAt", expiresAt.toString());
+    url.searchParams.set("signature", signature);
+
+    return url.toString();
+  }
+
+  /**
    * Verify a signed download URL and return the decoded parameters.
    * Return null if signature is invalid or URL has expired.
    */
@@ -69,9 +84,55 @@ export class UrlSigner {
     }
   }
 
+  /**
+   * Verify a signed management URL and return the decoded parameters.
+   * Return null if signature is invalid or URL has expired.
+   */
+  verifyManageUrl(url: string): {
+    userId: string;
+    expiresAt: number;
+  } | null {
+    try {
+      const urlObj = new URL(url);
+      const userId = urlObj.searchParams.get("userId");
+      const expiresAtStr = urlObj.searchParams.get("expiresAt");
+      const signature = urlObj.searchParams.get("signature");
+
+      if (!userId || !expiresAtStr || !signature) {
+        return null;
+      }
+
+      const expiresAt = Number.parseInt(expiresAtStr, 10);
+      if (Number.isNaN(expiresAt)) {
+        return null;
+      }
+
+      // Check expiration
+      if (Date.now() > expiresAt) {
+        return null;
+      }
+
+      // Verify signature
+      const expectedSignature = this.signManage(userId, expiresAt);
+      if (!this.constantTimeCompare(signature, expectedSignature)) {
+        return null;
+      }
+
+      return { userId, expiresAt };
+    } catch {
+      return null;
+    }
+  }
+
   private sign(userId: string, fileId: string, expiresAt: number): string {
     const hmac = createHmac("sha256", this.secret);
     hmac.update(`${userId}:${fileId}:${expiresAt}`);
+    return hmac.digest("hex");
+  }
+
+  private signManage(userId: string, expiresAt: number): string {
+    const hmac = createHmac("sha256", this.secret);
+    hmac.update(`manage:${userId}:${expiresAt}`);
     return hmac.digest("hex");
   }
 

@@ -59,17 +59,20 @@ const configSchema = z.object({
             .map((id) => id.trim())
             .filter((id) => id.length > 0)
         : [],
-    ),
+    )
+    .readonly(),
   FILES_DIRECTORY: z.string().default("./files"),
   FILE_EXTENSIONS: z
     .string()
     .default("pdf,txt,doc,docx,zip,tar,gz")
-    .transform((val) => val.split(",").map((ext) => `.${ext.trim().replace(/^\./, "")}`)),
+    .transform((val) => val.split(",").map((ext) => `.${ext.trim().replace(/^\./, "")}`))
+    .readonly(),
   WEB_SERVER_PORT: z.coerce.number().int().positive().default(3000),
   WEB_SERVER_HOST: z.string().default("0.0.0.0"),
   WEB_SERVER_BASE_URL: z.string().url().default("http://localhost:3000"),
   SIGNING_SECRET: z.string().min(32, "Signing secret must be at least 32 characters"),
   URL_EXPIRY_SEC: z.coerce.number().int().positive().default(600),
+  MANAGE_URL_EXPIRY_SEC: z.coerce.number().int().positive().default(3600),
   CAPTCHA_CHALLENGE_COUNT: z.coerce.number().int().positive().default(50),
   CAPTCHA_DIFFICULTY: z.coerce.number().int().positive().default(4),
   DOWNLOADS_PER_HR: z.coerce.number().int().positive().default(10),
@@ -77,6 +80,7 @@ const configSchema = z.object({
   SEARCH_MIN_CHARS: z.coerce.number().int().positive().default(3),
   SEARCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   SCAN_INTERVAL_MINS: z.coerce.number().nonnegative().default(15),
+  MAX_FILE_SIZE_MB: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DISCORD_LOGGING_WEBHOOK_URL: z.string().url().optional(),

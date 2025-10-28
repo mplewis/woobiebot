@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Management - WoobieBot</title>
+    <link rel="stylesheet" href="/public/manage.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>WoobieBot File Manager</h1>
+
+      <div id="file-tree"></div>
+
+      <div class="upload-section" id="upload-section">
+        <h2>Upload New File</h2>
+        <form id="upload-form" enctype="multipart/form-data">
+          <div class="form-group">
+            <label for="directory">Target directory</label>
+            <input type="text" id="directory" name="directory" placeholder="<root directory>" />
+          </div>
+
+          <div class="form-group">
+            <label for="file">Select file</label>
+            <input type="file" id="file" name="file" required />
+          </div>
+
+          <button type="submit" id="upload-btn">Upload</button>
+        </form>
+
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+
+    <div id="delete-modal" class="delete-modal">
+      <div class="delete-modal-content">
+        <h3>Delete File</h3>
+        <p>Are you sure you want to delete <span class="filename" id="delete-filename"></span>?</p>
+        <p>This action cannot be undone.</p>
+        <label for="delete-confirm-input">Type the filename to confirm:</label>
+        <input type="text" id="delete-confirm-input" placeholder="" autocomplete="off" />
+        <div class="delete-modal-buttons">
+          <button class="cancel-btn" id="delete-cancel-btn">Cancel</button>
+          <button class="confirm-delete-btn" id="delete-confirm-btn" disabled>Delete File</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="{{MANAGE_SCRIPT}}"></script>
+  </body>
+</html>

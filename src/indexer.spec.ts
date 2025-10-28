@@ -370,3 +370,94 @@ describe("periodic scanning", () => {
     expect(files).toHaveLength(1);
   });
 });
+
+describe("rescan", () => {
+  it("updates index when new files are added", async () => {
+    await createTestFiles(TEST_DIR, ["initial.txt"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      expect(indexer.getAll()).toHaveLength(1);
+
+      await createTestFiles(TEST_DIR, ["new-file.txt"]);
+      await indexer.rescan();
+
+      const files = indexer.getAll();
+      expect(files).toHaveLength(2);
+      expect(files.map((f) => f.path).sort()).toEqual(["initial.txt", "new-file.txt"]);
+    });
+  });
+
+  it("removes deleted files from index", async () => {
+    await createTestFiles(TEST_DIR, ["file1.txt", "file2.txt"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      expect(indexer.getAll()).toHaveLength(2);
+
+      await rm(join(TEST_DIR, "file1.txt"));
+      await indexer.rescan();
+
+      const files = indexer.getAll();
+      expect(files).toHaveLength(1);
+      expect(files[0]?.path).toBe("file2.txt");
+    });
+  });
+});
+
+describe("getDirectoryTree", () => {
+  it("returns empty tree for no files", async () => {
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const tree = indexer.getDirectoryTree();
+      expect(tree).toEqual({});
+    });
+  });
+
+  it("returns flat structure for files in root", async () => {
+    await createTestFiles(TEST_DIR, ["file1.txt", "file2.txt"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const tree = indexer.getDirectoryTree();
+      expect(tree["_files"]).toHaveLength(2);
+      const files = tree["_files"] as Array<{ path: string }>;
+      expect(files.map((f) => f.path).sort()).toEqual(["file1.txt", "file2.txt"]);
+    });
+  });
+
+  it("returns hierarchical structure for nested directories", async () => {
+    await createTestFiles(TEST_DIR, ["dir1/file1.txt", "dir1/file2.txt", "dir2/file3.txt"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const tree = indexer.getDirectoryTree();
+
+      expect(tree["dir1"]).toBeDefined();
+      expect(tree["dir2"]).toBeDefined();
+
+      const dir1 = tree["dir1"] as Record<string, unknown>;
+      const dir2 = tree["dir2"] as Record<string, unknown>;
+
+      expect(dir1["_files"]).toHaveLength(2);
+      expect(dir2["_files"]).toHaveLength(1);
+
+      const dir1Files = dir1["_files"] as Array<{ path: string }>;
+      expect(dir1Files.map((f) => f.path).sort()).toEqual(["dir1/file1.txt", "dir1/file2.txt"]);
+    });
+  });
+
+  it("handles deeply nested directory structures", async () => {
+    await createTestFiles(TEST_DIR, ["a/b/c/deep.txt"]);
+
+    await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+      const tree = indexer.getDirectoryTree();
+
+      expect(tree["a"]).toBeDefined();
+      const a = tree["a"] as Record<string, unknown>;
+      expect(a["b"]).toBeDefined();
+      const b = a["b"] as Record<string, unknown>;
+      expect(b["c"]).toBeDefined();
+      const c = b["c"] as Record<string, unknown>;
+      expect(c["_files"]).toHaveLength(1);
+
+      const files = c["_files"] as Array<{ path: string }>;
+      expect(files[0]?.path).toBe("a/b/c/deep.txt");
+    });
+  });
+});
