@@ -41,6 +41,8 @@ beforeEach(async () => {
     SCAN_INTERVAL_MINS: 15,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
+    DISCORD_LOGGING_LEVEL: "error" as const,
+    DISCORD_LOGGING_TAGS: new Map(),
   };
 
   captchaManager = new CaptchaManager({

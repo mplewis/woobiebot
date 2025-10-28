@@ -1,5 +1,5 @@
 import pino from "pino";
-import type { ErrorOutbox } from "./errorOutbox.js";
+import type { MessageOutbox } from "./messageOutbox.js";
 
 /**
  * Whether the application is running in development mode.
@@ -30,22 +30,45 @@ if (isDevelopment) {
  */
 export const log = pino(loggerOptions);
 
-let discordOutbox: ErrorOutbox | null = null;
+let messageOutbox: MessageOutbox | null = null;
 
 /**
- * Enable Discord error logging by providing an ErrorOutbox instance.
- * This will send all error and warn level logs to Discord.
- * @param outbox - ErrorOutbox instance to send error and warn logs to
+ * Enables message outbox integration by hooking all log levels to forward messages to Discord.
+ * Should be called once during application initialization.
  */
-export function enableDiscordLogging(outbox: ErrorOutbox): void {
-  discordOutbox = outbox;
+export function enableMessageOutbox(outbox: MessageOutbox): void {
+  messageOutbox = outbox;
 
+  const originalDebug = log.debug.bind(log) as (...args: unknown[]) => void;
+  const originalInfo = log.info.bind(log) as (...args: unknown[]) => void;
+  const originalWarn = log.warn.bind(log) as (...args: unknown[]) => void;
   const originalError = log.error.bind(log) as (...args: unknown[]) => void;
+
+  (log as { debug: (...args: unknown[]) => void }).debug = (...args: unknown[]) => {
+    originalDebug(...args);
+    if (messageOutbox) {
+      messageOutbox.addFromPinoLog("debug", args[0], args.slice(1));
+    }
+  };
+
+  (log as { info: (...args: unknown[]) => void }).info = (...args: unknown[]) => {
+    originalInfo(...args);
+    if (messageOutbox) {
+      messageOutbox.addFromPinoLog("info", args[0], args.slice(1));
+    }
+  };
+
+  (log as { warn: (...args: unknown[]) => void }).warn = (...args: unknown[]) => {
+    originalWarn(...args);
+    if (messageOutbox) {
+      messageOutbox.addFromPinoLog("warn", args[0], args.slice(1));
+    }
+  };
 
   (log as { error: (...args: unknown[]) => void }).error = (...args: unknown[]) => {
     originalError(...args);
-    if (discordOutbox) {
-      discordOutbox.addFromPinoLog(args[0], args.slice(1));
+    if (messageOutbox) {
+      messageOutbox.addFromPinoLog("error", args[0], args.slice(1));
     }
   };
 }

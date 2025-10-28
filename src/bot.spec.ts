@@ -35,6 +35,8 @@ beforeEach(() => {
     SCAN_INTERVAL_MINS: 15,
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
+    DISCORD_LOGGING_LEVEL: "error" as const,
+    DISCORD_LOGGING_TAGS: new Map(),
   };
 
   indexer = new FileIndexer({

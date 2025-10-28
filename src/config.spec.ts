@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalEnv = process.env;
 
@@ -93,4 +93,90 @@ it("uses custom SEARCH_THRESHOLD when provided", async () => {
   const config = loadConfig();
 
   expect(config.SEARCH_THRESHOLD).toBe(0.8);
+});
+
+describe("parseTagPairs", () => {
+  it("returns empty Map for empty string", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("");
+    expect(result.size).toBe(0);
+  });
+
+  it("parses single key:value pair", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("category:payment");
+    expect(result.size).toBe(1);
+    expect(result.get("category")).toEqual(["payment"]);
+  });
+
+  it("parses multiple key:value pairs", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("component:security,category:payment");
+    expect(result.size).toBe(2);
+    expect(result.get("component")).toEqual(["security"]);
+    expect(result.get("category")).toEqual(["payment"]);
+  });
+
+  it("groups multiple values for same key", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("category:payment,category:failure,category:success");
+    expect(result.size).toBe(1);
+    expect(result.get("category")).toEqual(["payment", "failure", "success"]);
+  });
+
+  it("handles mixed keys with multiple values", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs(
+      "component:security,category:payment,category:failure,component:auth",
+    );
+    expect(result.size).toBe(2);
+    expect(result.get("component")).toEqual(["security", "auth"]);
+    expect(result.get("category")).toEqual(["payment", "failure"]);
+  });
+
+  it("trims whitespace around keys and values", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs(" component : security , category : payment ");
+    expect(result.size).toBe(2);
+    expect(result.get("component")).toEqual(["security"]);
+    expect(result.get("category")).toEqual(["payment"]);
+  });
+
+  it("skips entries without colon", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("component:security,invalidentry,category:payment");
+    expect(result.size).toBe(2);
+    expect(result.get("component")).toEqual(["security"]);
+    expect(result.get("category")).toEqual(["payment"]);
+  });
+
+  it("skips entries with empty key", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs(":value,component:security");
+    expect(result.size).toBe(1);
+    expect(result.get("component")).toEqual(["security"]);
+  });
+
+  it("skips entries with empty value", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("key:,component:security");
+    expect(result.size).toBe(1);
+    expect(result.get("component")).toEqual(["security"]);
+  });
+
+  it("handles empty entries after splitting", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("component:security,,,,category:payment");
+    expect(result.size).toBe(2);
+    expect(result.get("component")).toEqual(["security"]);
+    expect(result.get("category")).toEqual(["payment"]);
+  });
+
+  it("handles values with colons", async () => {
+    const { parseTagPairs } = await import("./config.js");
+    const result = parseTagPairs("url:https://example.com,component:security");
+    expect(result.size).toBe(2);
+    expect(result.get("url")).toEqual(["https://example.com"]);
+    expect(result.get("component")).toEqual(["security"]);
+  });
 });
