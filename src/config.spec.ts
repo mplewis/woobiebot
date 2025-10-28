@@ -96,6 +96,13 @@ it("uses custom SEARCH_THRESHOLD when provided", async () => {
 });
 
 describe("parseTagPairs", () => {
+  beforeEach(() => {
+    // Set up minimal required env vars so config module can load
+    process.env["DISCORD_TOKEN"] = "test_token";
+    process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+    process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+  });
+
   it("returns empty Map for empty string", async () => {
     const { parseTagPairs } = await import("./config.js");
     const result = parseTagPairs("");
