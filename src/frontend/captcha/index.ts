@@ -7,7 +7,7 @@ import { extractFilenameFromHeader, triggerBrowserDownload } from "./download.js
  */
 async function fetchCaptchaData(): Promise<CaptchaPageData> {
   const params = new URLSearchParams(window.location.search);
-  const response = await fetch(`/api/captcha-data?${params.toString()}`);
+  const response = await fetch(`/api/captcha?${params.toString()}`);
 
   if (!response.ok) {
     const error = await response.json();

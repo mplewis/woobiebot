@@ -12,7 +12,7 @@ import { isTreeEmpty, sortTreeEntries } from "./tree.js";
  */
 async function fetchManageData(): Promise<ManagePageData> {
   const params = new URLSearchParams(window.location.search);
-  const response = await fetch(`/api/manage-data?${params.toString()}`);
+  const response = await fetch(`/api/manage?${params.toString()}`);
 
   if (!response.ok) {
     const error = await response.json();

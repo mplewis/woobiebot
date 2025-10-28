@@ -452,10 +452,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
   });
 
   /**
-   * GET /api/captcha-data
+   * GET /api/captcha
    * Provide captcha page data via API for client-side rendering.
    */
-  app.get("/api/captcha-data", async (request, reply) => {
+  app.get("/api/captcha", async (request, reply) => {
     const url = `${baseUrl}${request.url}`;
     const urlObj = new URL(url);
 
@@ -508,10 +508,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
   });
 
   /**
-   * GET /api/manage-data
+   * GET /api/manage
    * Provide manage page data via API for client-side rendering.
    */
-  app.get("/api/manage-data", async (request, reply) => {
+  app.get("/api/manage", async (request, reply) => {
     const url = `${baseUrl}${request.url}`;
     const urlObj = new URL(url);
 

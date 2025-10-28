@@ -41,7 +41,7 @@ it("returns captcha data from API endpoint", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha-data?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(200);
@@ -59,7 +59,7 @@ it("returns captcha data from API endpoint", async () => {
 it("returns 400 when captcha data API is missing parameters", async () => {
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: "/api/captcha-data?userId=user123",
+    url: "/api/captcha?userId=user123",
   });
 
   expect(response.statusCode).toBe(400);
@@ -72,7 +72,7 @@ it("returns 403 when captcha data API has invalid signature", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha-data?userId=user123&fileId=file123&token=token123&sig=invalid&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=user123&fileId=file123&token=token123&sig=invalid&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -96,7 +96,7 @@ it("returns 404 when captcha data API requests non-existent file", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha-data?userId=${userId}&fileId=${nonExistentFileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
+    url: `/api/captcha?userId=${userId}&fileId=${nonExistentFileId}&token=${token}&sig=${sig}&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(404);
@@ -131,7 +131,7 @@ it("returns 403 when captcha data API has expired token", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/captcha-data?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiredTime}`,
+    url: `/api/captcha?userId=${userId}&fileId=${fileId}&token=${token}&sig=${sig}&expiresAt=${expiredTime}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -142,7 +142,7 @@ it("returns 403 when captcha data API has expired token", async () => {
 it("returns 400 when captcha data API has invalid expiresAt format", async () => {
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: "/api/captcha-data?userId=user123&fileId=file123&token=token123&sig=sig123&expiresAt=not-a-number",
+    url: "/api/captcha?userId=user123&fileId=file123&token=token123&sig=sig123&expiresAt=not-a-number",
   });
 
   expect(response.statusCode).toBe(400);
@@ -163,7 +163,7 @@ it("returns manage data from API endpoint", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/manage-data?userId=${userId}&signature=${signature}&expiresAt=${expiresAt}`,
+    url: `/api/manage?userId=${userId}&signature=${signature}&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(200);
@@ -185,7 +185,7 @@ it("returns manage data from API endpoint", async () => {
 it("returns 400 when manage data API is missing parameters", async () => {
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: "/api/manage-data?userId=user123",
+    url: "/api/manage?userId=user123",
   });
 
   expect(response.statusCode).toBe(400);
@@ -198,7 +198,7 @@ it("returns 403 when manage data API has invalid signature", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/manage-data?userId=user123&signature=invalid&expiresAt=${expiresAt}`,
+    url: `/api/manage?userId=user123&signature=invalid&expiresAt=${expiresAt}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -219,7 +219,7 @@ it("returns 403 when manage data API has expired token", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: `/api/manage-data?userId=${userId}&signature=${signature}&expiresAt=${expiredTime}`,
+    url: `/api/manage?userId=${userId}&signature=${signature}&expiresAt=${expiredTime}`,
   });
 
   expect(response.statusCode).toBe(403);
@@ -230,7 +230,7 @@ it("returns 403 when manage data API has expired token", async () => {
 it("returns 400 when manage data API has invalid expiresAt format", async () => {
   const response = await ctx.server.getApp().inject({
     method: "GET",
-    url: "/api/manage-data?userId=user123&signature=sig123&expiresAt=not-a-number",
+    url: "/api/manage?userId=user123&signature=sig123&expiresAt=not-a-number",
   });
 
   expect(response.statusCode).toBe(400);
