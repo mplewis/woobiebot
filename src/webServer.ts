@@ -9,7 +9,7 @@ import type { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import type { FileIndexer } from "./indexer.js";
 import type { RateLimiter } from "./rateLimiter.js";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes } from "./routes/index.js";
 import { UrlSigner } from "./urlSigner.js";
 
 /**

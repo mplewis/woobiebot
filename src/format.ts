@@ -9,6 +9,13 @@ import type { SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
 /**
+ * Converts bytes to megabytes with 2 decimal places.
+ */
+export function bytesToMB(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(2);
+}
+
+/**
  * Maximum length for a Discord message in characters.
  */
 const DISCORD_MAX_MESSAGE_LENGTH = 2000;
