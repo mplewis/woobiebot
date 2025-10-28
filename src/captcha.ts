@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import Cap from "@cap.js/server";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 
 /**
  * Challenge data returned when generating a new challenge.
@@ -75,7 +75,7 @@ export class CaptchaManager {
     const challengeStr = JSON.stringify(result.challenge);
     const signature = this.createSignature(userId, fileId, token, challengeStr);
 
-    logger.debug({ userId, fileId, token }, "Generated captcha challenge");
+    log.debug({ userId, fileId, token }, "Generated captcha challenge");
 
     return {
       challenge: result.challenge,
@@ -109,8 +109,8 @@ export class CaptchaManager {
         solutions,
       );
       return result.valid;
-    } catch (error) {
-      logger.error({ error, userId, fileId }, "Failed to parse challenge or solution");
+    } catch (err) {
+      log.error({ err, userId, fileId }, "Failed to parse challenge or solution");
       return false;
     }
   }
@@ -131,7 +131,7 @@ export class CaptchaManager {
     const expectedSignature = this.createSignature(userId, fileId, token, challengeStr);
 
     if (!this.verifySignature(signature, expectedSignature)) {
-      logger.warn({ userId, fileId, token }, "Invalid captcha signature");
+      log.warn({ userId, fileId, token }, "Invalid captcha signature");
       return { valid: false, reason: "Invalid signature" };
     }
 
@@ -142,14 +142,14 @@ export class CaptchaManager {
       });
 
       if (result.success) {
-        logger.info({ userId, fileId, token }, "Captcha solution verified");
+        log.info({ userId, fileId, token }, "Captcha solution verified");
         return { valid: true };
       }
 
-      logger.warn({ userId, fileId, token }, "Invalid captcha solution");
+      log.warn({ userId, fileId, token }, "Invalid captcha solution");
       return { valid: false, reason: "Invalid solution" };
-    } catch (error) {
-      logger.error({ error, userId, fileId, token }, "Failed to verify captcha solution");
+    } catch (err) {
+      log.error({ err, userId, fileId, token }, "Failed to verify captcha solution");
       return { valid: false, reason: "Verification failed" };
     }
   }

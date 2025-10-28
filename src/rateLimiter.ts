@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 
 /**
  * Result of a rate limit check.
@@ -67,19 +67,16 @@ export class RateLimiter {
       const validated = rateLimitDataSchema.safeParse(parsed);
 
       if (!validated.success) {
-        logger.warn(
-          { userId, error: validated.error },
-          "Corrupt rate limit data, treating as empty",
-        );
+        log.warn({ userId, error: validated.error }, "Corrupt rate limit data, treating as empty");
         return null;
       }
 
       return validated.data;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         return null;
       }
-      logger.warn({ userId, error }, "Failed to load rate limit data");
+      log.warn({ userId, err }, "Failed to load rate limit data");
       return null;
     }
   }
@@ -97,8 +94,8 @@ export class RateLimiter {
       const filePath = this.getUserFilePath(userLimit.userId);
       const data = JSON.stringify(userLimit);
       await fs.writeFile(filePath, data, "utf-8");
-    } catch (error) {
-      logger.error({ userId: userLimit.userId, error }, "Failed to save rate limit data");
+    } catch (err) {
+      log.error({ userId: userLimit.userId, err }, "Failed to save rate limit data");
     }
   }
 
@@ -126,7 +123,7 @@ export class RateLimiter {
         this.users.set(userId, userLimit);
         await this.saveUserData(userLimit);
 
-        logger.debug({ userId, tokens: userLimit.tokens }, "New user initialized");
+        log.debug({ userId, tokens: userLimit.tokens }, "New user initialized");
 
         return {
           allowed: true,
@@ -145,10 +142,7 @@ export class RateLimiter {
       userLimit.tokens -= 1;
       await this.saveUserData(userLimit);
 
-      logger.debug(
-        { userId, tokens: userLimit.tokens, tokensAdded: tokensToAdd },
-        "Download allowed",
-      );
+      log.debug({ userId, tokens: userLimit.tokens, tokensAdded: tokensToAdd }, "Download allowed");
 
       return {
         allowed: true,
@@ -159,7 +153,7 @@ export class RateLimiter {
 
     await this.saveUserData(userLimit);
 
-    logger.info({ userId, tokens: userLimit.tokens }, "Rate limit exceeded");
+    log.info({ userId, tokens: userLimit.tokens }, "Rate limit exceeded");
 
     return {
       allowed: false,
@@ -214,10 +208,10 @@ export class RateLimiter {
           .filter((file) => file.endsWith(".json"))
           .map((file) => fs.unlink(path.join(this.storageDir, file))),
       );
-      logger.info("Cleared all rate limit data");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.error({ error }, "Failed to clear rate limit files");
+      log.info("Cleared all rate limit data");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        log.error({ err }, "Failed to clear rate limit files");
       }
     }
   }

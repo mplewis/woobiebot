@@ -94,6 +94,21 @@ it("handles subdirectories", async () => {
   });
 });
 
+it("ignores dotfiles and dot directories", async () => {
+  await createTestFiles(TEST_DIR, [
+    "visible.txt",
+    ".hidden.txt",
+    ".dotdir/nested.txt",
+    "normal/file.txt",
+  ]);
+
+  await withIndexer({ directory: TEST_DIR, extensions: [".txt"] }, async (indexer) => {
+    const files = indexer.getAll();
+    expect(files).toHaveLength(2);
+    expect(files.map((f) => f.path).sort()).toEqual(["normal/file.txt", "visible.txt"]);
+  });
+});
+
 it("rebuilds index from scratch, removing deleted files", async () => {
   await createTestFiles(TEST_DIR, ["file1.txt", "file2.txt", "file3.txt"]);
 

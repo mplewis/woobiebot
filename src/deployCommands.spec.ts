@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { deployCommands } from "./deployCommands.js";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 
 const mockPut = vi.fn();
 
@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 it("deploys global commands and guild commands when guild IDs provided", async () => {
-  await deployCommands("test-token", "test-client-id", ["guild-1", "guild-2"], logger);
+  await deployCommands("test-token", "test-client-id", ["guild-1", "guild-2"], log);
 
   expect(mockPut).toHaveBeenCalledTimes(3);
   expect(mockPut).toHaveBeenNthCalledWith(
@@ -51,7 +51,7 @@ it("deploys global commands and guild commands when guild IDs provided", async (
 });
 
 it("deploys only global commands when no guild IDs provided", async () => {
-  await deployCommands("test-token", "test-client-id", [], logger);
+  await deployCommands("test-token", "test-client-id", [], log);
 
   expect(mockPut).toHaveBeenCalledTimes(1);
   expect(mockPut).toHaveBeenCalledWith(
@@ -63,7 +63,7 @@ it("deploys only global commands when no guild IDs provided", async () => {
 it("throws error when deployment fails", async () => {
   mockPut.mockRejectedValue(new Error("API error"));
 
-  await expect(deployCommands("test-token", "test-client-id", [], logger)).rejects.toThrow(
+  await expect(deployCommands("test-token", "test-client-id", [], log)).rejects.toThrow(
     "API error",
   );
 });

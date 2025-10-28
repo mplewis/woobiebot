@@ -1,11 +1,11 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CaptchaManager } from "./captcha.js";
 import type { Config } from "./config.js";
 import { FileIndexer } from "./indexer.js";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { solveCaptcha } from "./testUtils.js";
 import { WebServer, type WebServerDependencies } from "./webServer.js";
@@ -41,6 +41,8 @@ beforeEach(async () => {
     SCAN_INTERVAL_MINS: 15,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
+    DISCORD_LOGGING_LEVEL: "error" as const,
+    DISCORD_LOGGING_TAGS: new Map(),
   };
 
   captchaManager = new CaptchaManager({
@@ -64,7 +66,7 @@ beforeEach(async () => {
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   };
 
   server = new WebServer(deps);
@@ -77,7 +79,7 @@ afterEach(async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test("generates a valid signed URL", () => {
+it("generates a valid signed URL", () => {
   const url = server.generateDownloadUrl("user123", "file456");
 
   expect(url).toContain(mockConfig.WEB_SERVER_BASE_URL);
@@ -88,7 +90,7 @@ test("generates a valid signed URL", () => {
   expect(url).toContain("expiresAt=");
 });
 
-test("returns captcha page for valid signed URL", async () => {
+it("returns captcha page for valid signed URL", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -109,7 +111,7 @@ test("returns captcha page for valid signed URL", async () => {
   expect(response.body).toContain("Just a moment...");
 });
 
-test("returns 403 for invalid signature", async () => {
+it("returns 403 for invalid signature", async () => {
   const response = await server.getApp().inject({
     method: "GET",
     url: "/download?userId=user123&fileId=file456&expiresAt=999999999999&signature=invalid",
@@ -121,7 +123,7 @@ test("returns 403 for invalid signature", async () => {
   });
 });
 
-test("returns 404 for non-existent file", async () => {
+it("returns 404 for non-existent file", async () => {
   const url = server.generateDownloadUrl("user123", "nonexistent");
   const urlObj = new URL(url);
   const path = `${urlObj.pathname}${urlObj.search}`;
@@ -135,7 +137,7 @@ test("returns 404 for non-existent file", async () => {
   expect(response.json()).toEqual({ error: "File not found" });
 });
 
-test("returns 403 for expired URL", async () => {
+it("returns 403 for expired URL", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -161,7 +163,7 @@ test("returns 403 for expired URL", async () => {
   vi.useRealTimers();
 });
 
-test("downloads file with valid captcha solution", async () => {
+it("downloads file with valid captcha solution", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -193,7 +195,59 @@ test("downloads file with valid captcha solution", async () => {
   expect(response.body).toBe("Hello, World!");
 });
 
-test("returns 400 for missing fields", async () => {
+it("sanitizes filenames with special characters in Content-Disposition header", async () => {
+  const specialFilename = 'test"file\nwith\rspecial\\chars.txt';
+  await writeFile(join(tempDir, specialFilename), "Special content");
+
+  await indexer.stop();
+  const newIndexer = new FileIndexer({ directory: tempDir, extensions: [".txt"] });
+  await newIndexer.start();
+
+  const files = newIndexer.getAll();
+  const specialFile = files.find((f) => f.name === specialFilename);
+  if (!specialFile) {
+    throw new Error("Special filename file not found in indexer");
+  }
+
+  await server.stop();
+  server = new WebServer({
+    config: mockConfig,
+    captchaManager,
+    rateLimiter,
+    indexer: newIndexer,
+    log,
+  });
+
+  const userId = "user123";
+  const challengeData = await captchaManager.generateChallenge(userId, specialFile.id);
+  const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+  const response = await server.getApp().inject({
+    method: "POST",
+    url: "/verify",
+    payload: {
+      userId,
+      fileId: specialFile.id,
+      token: challengeData.token,
+      challenge: JSON.stringify(challengeData.challenge),
+      signature: challengeData.signature,
+      solution: solution.join(","),
+    },
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  const disposition = response.headers["content-disposition"];
+  expect(disposition).toBeDefined();
+  expect(disposition).toContain("attachment");
+  expect(disposition).toContain('filename="test\\"filewithspecial\\\\chars.txt"');
+  expect(disposition).toContain("filename*=UTF-8''test%22file%0Awith%0Dspecial%5Cchars.txt");
+  expect(response.body).toBe("Special content");
+
+  indexer = newIndexer;
+});
+
+it("returns 400 for missing fields", async () => {
   const response = await server.getApp().inject({
     method: "POST",
     url: "/verify",
@@ -206,7 +260,7 @@ test("returns 400 for missing fields", async () => {
   expect(response.json()).toEqual({ error: "Missing required fields" });
 });
 
-test("returns 403 for invalid captcha solution", async () => {
+it("returns 403 for invalid captcha solution", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -233,7 +287,7 @@ test("returns 403 for invalid captcha solution", async () => {
   expect(response.json()).toEqual({ error: "Invalid captcha solution" });
 });
 
-test("returns 429 when rate limit exceeded", async () => {
+it("returns 429 when rate limit exceeded", async () => {
   const files = indexer.getAll();
   const fileId = files[0]?.id;
   if (!fileId) {
@@ -269,7 +323,7 @@ test("returns 429 when rate limit exceeded", async () => {
   });
 });
 
-test("returns 404 for non-existent file", async () => {
+it("returns 404 for non-existent file", async () => {
   const userId = "user123";
   const fileId = "nonexistent";
   const challengeData = await captchaManager.generateChallenge(userId, fileId);
@@ -292,7 +346,7 @@ test("returns 404 for non-existent file", async () => {
   expect(response.json()).toEqual({ error: "File not found" });
 });
 
-test("returns health status", async () => {
+it("returns health status", async () => {
   const response = await server.getApp().inject({
     method: "GET",
     url: "/health",
@@ -304,20 +358,20 @@ test("returns health status", async () => {
   expect(body.timestamp).toBeTypeOf("number");
 });
 
-test("starts and stops server successfully", async () => {
+it("starts and stops server successfully", async () => {
   const testServer = new WebServer({
     config: { ...mockConfig, WEB_SERVER_PORT: 3002 },
     captchaManager,
     rateLimiter,
     indexer,
-    logger,
+    log,
   });
 
   await expect(testServer.start()).resolves.toBeUndefined();
   await expect(testServer.stop()).resolves.toBeUndefined();
 });
 
-test("returns generic error message for 500 errors without exposing details", async () => {
+it("returns generic error message for 500 errors without exposing details", async () => {
   const mockIndexer = {
     ...indexer,
     getById: vi.fn().mockImplementation(() => {
@@ -330,7 +384,7 @@ test("returns generic error message for 500 errors without exposing details", as
     captchaManager,
     rateLimiter,
     indexer: mockIndexer as unknown as FileIndexer,
-    logger,
+    log,
   });
 
   const userId = "user123";

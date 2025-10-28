@@ -27,7 +27,7 @@ export interface BotDependencies {
   /** Web server for serving files */
   webServer: WebServer;
   /** Logger instance */
-  logger: Logger;
+  log: Logger;
 }
 
 /**
@@ -39,14 +39,14 @@ export class Bot {
   private readonly indexer: FileIndexer;
   private readonly rateLimiter: RateLimiter;
   private readonly webServer: WebServer;
-  private readonly logger: Logger;
+  private readonly log: Logger;
 
   constructor(deps: BotDependencies) {
     this.config = deps.config;
     this.indexer = deps.indexer;
     this.rateLimiter = deps.rateLimiter;
     this.webServer = deps.webServer;
-    this.logger = deps.logger.child({ component: "Bot" });
+    this.log = deps.log.child({ component: "Bot" });
 
     this.client = new Client({
       intents: [GatewayIntentBits.Guilds],
@@ -60,7 +60,7 @@ export class Bot {
    */
   private setupEventHandlers(): void {
     this.client.on(Events.ClientReady, () => {
-      this.logger.info({ username: this.client.user?.tag }, "Bot logged in");
+      this.log.info({ username: this.client.user?.tag }, "Bot logged in");
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
@@ -70,8 +70,8 @@ export class Bot {
         } else if (interaction.isButton()) {
           await this.handleButton(interaction);
         }
-      } catch (error) {
-        this.logger.error({ error }, "Uncaught error in interaction handler");
+      } catch (err) {
+        this.log.error({ err }, "Uncaught error in interaction handler");
       }
     });
   }
@@ -82,6 +82,8 @@ export class Bot {
    * @param interaction - The slash command interaction to handle
    */
   private async handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     switch (interaction.commandName) {
       case "search": {
         const query = interaction.options.getString("query", true);
@@ -89,10 +91,7 @@ export class Bot {
         break;
       }
       default: {
-        await interaction.reply({
-          content: "Unknown command.",
-          flags: MessageFlags.Ephemeral,
-        });
+        await interaction.editReply({ content: "Unknown command." });
       }
     }
   }
@@ -108,9 +107,7 @@ export class Bot {
     query: string,
   ): Promise<void> {
     const userId = interaction.user.id;
-    this.logger.info({ userId, query }, "Search command");
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    this.log.info({ userId, query }, "Search command");
 
     if (query.length < this.config.SEARCH_MIN_CHARS) {
       const s = this.config.SEARCH_MIN_CHARS === 1 ? "" : "s";
@@ -156,32 +153,25 @@ export class Bot {
    * @param interaction - The button interaction
    */
   private async handleButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = interaction.user.id;
 
-    if (interaction.customId.startsWith("list_all:")) {
-      const query = interaction.customId.slice("list_all:".length);
-      this.logger.info({ userId, query }, "List all results button");
-
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      const results = this.indexer.search(query);
-
-      if (results.length === 0) {
-        await interaction.editReply({
-          content: `No files found matching "${query}".`,
-        });
-        return;
-      }
-
-      const response = formatAllResultsList(query, results);
-      await interaction.editReply(response);
-    } else {
-      this.logger.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
-      await interaction.reply({
-        content: "Unknown button interaction.",
-        flags: MessageFlags.Ephemeral,
-      });
+    if (!interaction.customId.startsWith("list_all:")) {
+      this.log.warn({ userId, customId: interaction.customId }, "Unknown button interaction");
+      await interaction.editReply({ content: "Unknown button interaction." });
+      return;
     }
+    const query = interaction.customId.slice("list_all:".length);
+    this.log.info({ userId, query }, "List all results button");
+
+    const results = this.indexer.search(query);
+    if (results.length === 0) {
+      await interaction.editReply({ content: `No files found matching "${query}".` });
+      return;
+    }
+
+    const response = formatAllResultsList(query, results);
+    await interaction.editReply(response);
   }
 
   /**
@@ -194,13 +184,13 @@ export class Bot {
         this.config.DISCORD_TOKEN,
         this.config.DISCORD_CLIENT_ID,
         this.config.DISCORD_GUILD_IDS,
-        this.logger,
+        this.log,
       );
 
       await this.client.login(this.config.DISCORD_TOKEN);
-      this.logger.info("Bot started");
+      this.log.info("Bot started");
     } catch (err) {
-      this.logger.error({ err }, "Failed to start bot");
+      this.log.error({ err }, "Failed to start bot");
       throw err;
     }
   }
@@ -211,9 +201,9 @@ export class Bot {
   async stop(): Promise<void> {
     try {
       this.client.destroy();
-      this.logger.info("Bot stopped");
+      this.log.info("Bot stopped");
     } catch (err) {
-      this.logger.error({ err }, "Error stopping bot");
+      this.log.error({ err }, "Error stopping bot");
       throw err;
     }
   }

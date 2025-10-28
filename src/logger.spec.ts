@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
-import { logger } from "./logger.js";
+import { log } from "./logger.js";
 
 it("creates a logger instance", () => {
-  expect(logger).toBeDefined();
-  expect(logger.info).toBeInstanceOf(Function);
-  expect(logger.error).toBeInstanceOf(Function);
-  expect(logger.debug).toBeInstanceOf(Function);
-  expect(logger.warn).toBeInstanceOf(Function);
+  expect(log).toBeDefined();
+  expect(log.info).toBeInstanceOf(Function);
+  expect(log.error).toBeInstanceOf(Function);
+  expect(log.debug).toBeInstanceOf(Function);
+  expect(log.warn).toBeInstanceOf(Function);
 });
