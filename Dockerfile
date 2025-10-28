@@ -8,7 +8,7 @@ COPY package.json pnpm-lock.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.frontend.json vite.config.ts ./
 COPY src ./src
 
 RUN pnpm build
@@ -25,7 +25,6 @@ RUN corepack enable
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-COPY templates ./templates
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /app/data
