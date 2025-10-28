@@ -2,20 +2,57 @@ import type { Logger } from "pino";
 import { FILTERED_DISCORD_ERROR_CODES, FILTERED_SYSTEM_ERROR_CODES } from "./errorFilters.js";
 
 /**
- * Maximum number of embeds allowed in a single Discord webhook message.
+ * Maximum number of Discord embeds that can be sent in a single webhook request.
  */
 const DISCORD_EMBED_LIMIT = 10;
 
 /**
- * Interval in milliseconds between automatic flushes to Discord webhook.
+ * Interval in milliseconds at which queued messages are flushed to Discord.
  */
 const FLUSH_INTERVAL_MS = 5000;
 
 /**
- * Represents a queued error entry with deduplication metadata.
+ * Log levels supported by the message outbox.
  */
-interface ErrorEntry {
-  level: "error" | "warn";
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+/**
+ * Priority ordering for log levels (higher number = more severe).
+ */
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+/**
+ * Discord embed colors for each log level.
+ */
+const LEVEL_COLORS: Record<LogLevel, number> = {
+  debug: 0x9b59b6,
+  info: 0x3498db,
+  warn: 0xf39c12,
+  error: 0xe74c3c,
+};
+
+/**
+ * Get all log levels at or above the specified minimum level.
+ * @param minLevel - The minimum log level
+ * @returns Array of log levels at or above the minimum
+ */
+export function getLevelsAtOrAbove(minLevel: LogLevel): LogLevel[] {
+  const minPriority = LOG_LEVEL_PRIORITY[minLevel];
+  return (Object.keys(LOG_LEVEL_PRIORITY) as LogLevel[]).filter(
+    (level) => LOG_LEVEL_PRIORITY[level] >= minPriority,
+  );
+}
+
+/**
+ * Internal representation of a queued message with metadata.
+ */
+interface MessageEntry {
+  level: LogLevel;
   message: string;
   context?: Record<string, unknown>;
   stack?: string;
@@ -25,7 +62,7 @@ interface ErrorEntry {
 }
 
 /**
- * Result of extracting message, context, and stack from Pino log arguments.
+ * Extracted data from a Pino log entry.
  */
 export interface ExtractedLogData {
   message: string;
@@ -34,11 +71,18 @@ export interface ExtractedLogData {
 }
 
 /**
+ * Configuration for routing messages to Discord based on log level and key-value tags.
+ * Tags is a Map where keys are context field names and values are arrays of matching values.
+ * Example: Map { "component" => ["security"], "category" => ["failure", "error"] }
+ */
+export interface RoutingConfig {
+  levels: LogLevel[];
+  tags: Map<string, string[]>;
+}
+
+/**
  * Extracts message, context, and stack trace from Pino log arguments.
- *
- * @param obj - First argument passed to Pino logger (may be an object or string)
- * @param args - Additional arguments passed to Pino logger
- * @returns Extracted message, optional context, and optional stack trace
+ * Handles various Pino log formats including string messages, error objects, and structured logs.
  */
 export function extractMessageContextStack(obj: unknown, args: unknown[]): ExtractedLogData {
   let message = "Unknown error";
@@ -93,33 +137,50 @@ export function extractMessageContextStack(obj: unknown, args: unknown[]): Extra
 }
 
 /**
- * Manages queuing and batching of error logs for Discord webhook delivery.
- * Deduplicates identical errors and sends them as Discord embeds every 5 seconds.
+ * Checks if a log message context matches any of the configured key-value tags.
+ * @param context - Log message context object
+ * @param tags - Map of keys to arrays of matching values
+ * @returns true if any key-value pair in context matches the configured tags
  */
-export class ErrorOutbox {
-  private readonly webhookUrl: string;
-  private readonly log: Logger;
-  private readonly entries: Map<string, ErrorEntry> = new Map();
-  private flushInterval: NodeJS.Timeout | null = null;
-
-  /**
-   * Create a new ErrorOutbox instance.
-   * @param webhookUrl - Discord webhook URL to send error logs to
-   * @param log - Pino logger instance for internal logging
-   */
-  constructor(webhookUrl: string, log: Logger) {
-    this.webhookUrl = webhookUrl;
-    this.log = log.child({ component: "ErrorOutbox" });
+function matchesTags(
+  context: Record<string, unknown> | undefined,
+  tags: Map<string, string[]>,
+): boolean {
+  if (!context || tags.size === 0) {
+    return false;
   }
 
-  /**
-   * Check if an error should be filtered from Discord logging based on Discord API error codes or system error codes.
-   * Errors are filtered if they contain a rawError.code that matches any code in FILTERED_DISCORD_ERROR_CODES,
-   * or if they contain an err.code that matches any code in FILTERED_SYSTEM_ERROR_CODES.
-   *
-   * @param context - Optional context object that may contain error information
-   * @returns true if the error should be filtered (not sent to Discord), false otherwise
-   */
+  for (const [key, values] of tags.entries()) {
+    const contextValue = context[key];
+    if (typeof contextValue === "string" && values.includes(contextValue)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Manages queuing and batching of log messages for delivery to Discord via webhook.
+ * Deduplicates identical messages, filters known error codes, and routes messages based on level and category.
+ */
+export class MessageOutbox {
+  private readonly webhookUrl: string;
+  private readonly log: Logger;
+  private readonly entries: Map<string, MessageEntry> = new Map();
+  private readonly routingConfig: RoutingConfig;
+  private flushInterval: NodeJS.Timeout | null = null;
+
+  constructor(
+    webhookUrl: string,
+    log: Logger,
+    routingConfig: RoutingConfig = { levels: ["warn", "error"], tags: new Map() },
+  ) {
+    this.webhookUrl = webhookUrl;
+    this.log = log.child({ component: "MessageOutbox" });
+    this.routingConfig = routingConfig;
+  }
+
   private shouldFilterError(context?: Record<string, unknown>): boolean {
     if (!context) {
       return false;
@@ -138,13 +199,6 @@ export class ErrorOutbox {
     return false;
   }
 
-  /**
-   * Extract Discord API error code from context object.
-   * Checks common locations where Discord error codes might appear.
-   *
-   * @param context - Context object that may contain error information
-   * @returns Discord error code if found, null otherwise
-   */
   private extractDiscordErrorCode(context: Record<string, unknown>): number | null {
     if (typeof context["rawError"] === "object" && context["rawError"] !== null) {
       const rawError = context["rawError"] as Record<string, unknown>;
@@ -166,13 +220,6 @@ export class ErrorOutbox {
     return null;
   }
 
-  /**
-   * Extract system error code from context object.
-   * Checks common locations where Node.js system error codes might appear (e.g., EAI_AGAIN, ECONNREFUSED).
-   *
-   * @param context - Context object that may contain error information
-   * @returns System error code string if found, null otherwise
-   */
   private extractSystemErrorCode(context: Record<string, unknown>): string | null {
     if (typeof context["err"] === "object" && context["err"] !== null) {
       const err = context["err"] as Record<string, unknown>;
@@ -188,9 +235,14 @@ export class ErrorOutbox {
     return null;
   }
 
-  /**
-   * Start the outbox flush interval.
-   */
+  private shouldRoute(level: LogLevel, context?: Record<string, unknown>): boolean {
+    if (this.routingConfig.levels.includes(level)) {
+      return true;
+    }
+
+    return matchesTags(context, this.routingConfig.tags);
+  }
+
   start(): void {
     if (this.flushInterval) {
       return;
@@ -198,16 +250,13 @@ export class ErrorOutbox {
 
     this.flushInterval = setInterval(() => {
       this.flush().catch((err) => {
-        this.log.error({ err }, "Failed to flush error outbox");
+        this.log.error({ err }, "Failed to flush message outbox");
       });
     }, FLUSH_INTERVAL_MS);
 
-    this.log.info("Error outbox started");
+    this.log.info("Message outbox started");
   }
 
-  /**
-   * Stop the outbox flush interval and perform final flush.
-   */
   async stop(): Promise<void> {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
@@ -215,25 +264,15 @@ export class ErrorOutbox {
     }
 
     await this.flush();
-    this.log.info("Error outbox stopped");
+    this.log.info("Message outbox stopped");
   }
 
-  /**
-   * Add an error to the outbox queue.
-   * Errors matching FILTERED_DISCORD_ERROR_CODES will be silently dropped.
-   *
-   * @param level - Severity level of the log entry ("error" or "warn")
-   * @param message - Human-readable error message
-   * @param context - Optional additional context data to include with the error
-   * @param stack - Optional stack trace string
-   */
-  add(
-    level: "error" | "warn",
-    message: string,
-    context?: Record<string, unknown>,
-    stack?: string,
-  ): void {
+  add(level: LogLevel, message: string, context?: Record<string, unknown>, stack?: string): void {
     if (this.shouldFilterError(context)) {
+      return;
+    }
+
+    if (!this.shouldRoute(level, context)) {
       return;
     }
 
@@ -244,7 +283,7 @@ export class ErrorOutbox {
       existing.count++;
       existing.lastSeen = new Date();
     } else {
-      const entry: ErrorEntry = {
+      const entry: MessageEntry = {
         level,
         message,
         count: 1,
@@ -261,21 +300,11 @@ export class ErrorOutbox {
     }
   }
 
-  /**
-   * Add a Pino log entry to the outbox queue.
-   * Parses Pino's log format to extract message, context, and stack trace.
-   *
-   * @param obj - First argument passed to Pino logger (may be an object or string)
-   * @param args - Additional arguments passed to Pino logger
-   */
-  addFromPinoLog(obj: unknown, args: unknown[]): void {
+  addFromPinoLog(level: LogLevel, obj: unknown, args: unknown[]): void {
     const { message, context, stack } = extractMessageContextStack(obj, args);
-    this.add("error", message, context, stack);
+    this.add(level, message, context, stack);
   }
 
-  /**
-   * Flush all queued errors to Discord webhook.
-   */
   async flush(): Promise<void> {
     if (this.entries.size === 0) {
       return;
@@ -294,7 +323,7 @@ export class ErrorOutbox {
           successfulKeys.add(key);
         }
       } catch (err) {
-        this.log.error({ err, batchSize: batch.length }, "Failed to send error batch to Discord");
+        this.log.error({ err, batchSize: batch.length }, "Failed to send message batch to Discord");
       }
     }
 
@@ -303,38 +332,20 @@ export class ErrorOutbox {
     }
   }
 
-  /**
-   * Generate a unique key for deduplication.
-   * @param level - Severity level of the log entry
-   * @param message - Error message
-   * @param context - Optional context data
-   * @returns Unique string key for deduplication
-   */
   private generateKey(level: string, message: string, context?: Record<string, unknown>): string {
     const contextStr = context ? JSON.stringify(context) : "";
     return `${level}:${message}:${contextStr}`;
   }
 
-  /**
-   * Split entries into batches respecting Discord's embed limit.
-   * @param entries - Array of error entries to batch
-   * @param batchSize - Maximum number of entries per batch
-   * @returns Array of batches, each containing up to batchSize entries
-   */
-  private createBatches(entries: ErrorEntry[], batchSize: number): ErrorEntry[][] {
-    const batches: ErrorEntry[][] = [];
+  private createBatches(entries: MessageEntry[], batchSize: number): MessageEntry[][] {
+    const batches: MessageEntry[][] = [];
     for (let i = 0; i < entries.length; i += batchSize) {
       batches.push(entries.slice(i, i + batchSize));
     }
     return batches;
   }
 
-  /**
-   * Send a batch of errors to Discord as embeds.
-   * @param entries - Array of error entries to send
-   * @throws Error if Discord webhook request fails
-   */
-  private async sendToDiscord(entries: ErrorEntry[]): Promise<void> {
+  private async sendToDiscord(entries: MessageEntry[]): Promise<void> {
     const embeds = entries.map((entry) => this.createEmbed(entry));
 
     const response = await fetch(this.webhookUrl, {
@@ -351,12 +362,7 @@ export class ErrorOutbox {
     }
   }
 
-  /**
-   * Create a Discord embed from an error entry.
-   * @param entry - Error entry to convert to Discord embed format
-   * @returns Discord embed object with title, color, fields, and timestamp
-   */
-  private createEmbed(entry: ErrorEntry): Record<string, unknown> {
+  private createEmbed(entry: MessageEntry): Record<string, unknown> {
     const countSuffix = entry.count > 1 ? ` (x${entry.count})` : "";
     const title = `${entry.level.toUpperCase()}: ${entry.message}${countSuffix}`;
 
@@ -379,6 +385,7 @@ export class ErrorOutbox {
 
     return {
       title: title.slice(0, 256),
+      color: LEVEL_COLORS[entry.level],
       fields,
       timestamp: entry.lastSeen.toISOString(),
     };

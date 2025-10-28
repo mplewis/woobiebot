@@ -1,15 +1,15 @@
 import pino from "pino";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ErrorOutbox, extractMessageContextStack } from "./errorOutbox.js";
+import { extractMessageContextStack, getLevelsAtOrAbove, MessageOutbox } from "./messageOutbox.js";
 
 const webhookUrl = "https://discord.com/api/webhooks/test";
 let logger: pino.Logger;
-let outbox: ErrorOutbox;
+let outbox: MessageOutbox;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   logger = pino({ level: "silent" });
-  outbox = new ErrorOutbox(webhookUrl, logger);
+  outbox = new MessageOutbox(webhookUrl, logger);
   fetchMock = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -39,6 +39,7 @@ it("queues errors and sends them on flush", async () => {
   const callBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
   expect(callBody.embeds).toHaveLength(1);
   expect(callBody.embeds[0]?.title).toContain("ERROR: Test error");
+  expect(callBody.embeds[0]?.color).toBe(0xe74c3c);
   expect(callBody.embeds[0].fields).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -432,6 +433,226 @@ describe("error filtering", () => {
   });
 });
 
+describe("log levels and colors", () => {
+  it("sends debug messages with purple color", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["debug", "info", "warn", "error"],
+      tags: new Map(),
+    });
+
+    outbox.add("debug", "Debug message");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("DEBUG: Debug message");
+    expect(body.embeds[0]?.color).toBe(0x9b59b6);
+  });
+
+  it("sends info messages with blue color", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["debug", "info", "warn", "error"],
+      tags: new Map(),
+    });
+
+    outbox.add("info", "Info message");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("INFO: Info message");
+    expect(body.embeds[0]?.color).toBe(0x3498db);
+  });
+
+  it("sends warn messages with yellow color", async () => {
+    outbox.add("warn", "Warning message");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("WARN: Warning message");
+    expect(body.embeds[0]?.color).toBe(0xf39c12);
+  });
+
+  it("sends error messages with red color", async () => {
+    outbox.add("error", "Error message");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("ERROR: Error message");
+    expect(body.embeds[0]?.color).toBe(0xe74c3c);
+  });
+
+  it("does not send debug messages by default", async () => {
+    outbox.add("debug", "Debug message");
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send info messages by default", async () => {
+    outbox.add("info", "Info message");
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("tag-based routing", () => {
+  it("sends messages with matching key-value tag", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["warn", "error"],
+      tags: new Map([["category", ["payment"]]]),
+    });
+
+    outbox.add("info", "Payment received", { category: "payment", amount: 100 });
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("INFO: Payment received");
+  });
+
+  it("sends messages matching component:security tag", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([["component", ["security"]]]),
+    });
+
+    outbox.add("info", "Security event", { component: "security", event: "login" });
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds[0]?.title).toContain("INFO: Security event");
+  });
+
+  it("does not send messages without matching tag when level not configured", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([["category", ["payment"]]]),
+    });
+
+    outbox.add("info", "User logged in", { userId: "123" });
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send messages with non-matching tag value", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([["category", ["payment"]]]),
+    });
+
+    outbox.add("info", "Security alert", { category: "security", userId: "123" });
+    await outbox.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends all matching levels when tags is empty (default behavior)", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["warn", "error"],
+      tags: new Map(),
+    });
+
+    outbox.add("warn", "Warning");
+    outbox.add("error", "Error");
+    outbox.add("info", "Info");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds).toHaveLength(2);
+    expect(body.embeds.map((e: { title: string }) => e.title)).toEqual([
+      "WARN: Warning",
+      "ERROR: Error",
+    ]);
+  });
+
+  it("sends messages matching level OR tags", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([
+        ["component", ["security"]],
+        ["category", ["failure"]],
+      ]),
+    });
+
+    outbox.add("info", "Info with component:security", { component: "security" });
+    outbox.add("info", "Info with category:failure", { category: "failure" });
+    outbox.add("error", "Error without tags");
+    outbox.add("debug", "Debug without tags");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds).toHaveLength(3);
+    expect(body.embeds.map((e: { title: string }) => e.title)).toEqual([
+      "INFO: Info with component:security",
+      "INFO: Info with category:failure",
+      "ERROR: Error without tags",
+    ]);
+  });
+
+  it("treats messages with different tag values as separate entries", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([["category", ["payment", "security"]]]),
+    });
+
+    outbox.add("info", "Same message", { category: "payment" });
+    outbox.add("info", "Same message", { category: "security" });
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds).toHaveLength(2);
+  });
+
+  it("sends debug messages with matching tag even when debug not in levels", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["warn", "error"],
+      tags: new Map([["category", ["security"]]]),
+    });
+
+    outbox.add("debug", "Debug with category:security", { category: "security" });
+    outbox.add("debug", "Debug without tags");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds).toHaveLength(1);
+    expect(body.embeds[0]?.title).toContain("DEBUG: Debug with category:security");
+  });
+
+  it("matches multiple values for the same key", async () => {
+    outbox = new MessageOutbox(webhookUrl, logger, {
+      levels: ["error"],
+      tags: new Map([["category", ["payment", "security", "failure"]]]),
+    });
+
+    outbox.add("debug", "Debug with payment", { category: "payment" });
+    outbox.add("info", "Info with security", { category: "security" });
+    outbox.add("info", "Info with failure", { category: "failure" });
+    outbox.add("warn", "Warn with other", { category: "other" });
+    outbox.add("error", "Error without tags");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body ?? "{}");
+    expect(body.embeds).toHaveLength(4);
+    expect(body.embeds.map((e: { title: string }) => e.title)).toEqual([
+      "DEBUG: Debug with payment",
+      "INFO: Info with security",
+      "INFO: Info with failure",
+      "ERROR: Error without tags",
+    ]);
+  });
+});
+
 describe("extractMessageContextStack", () => {
   it("extracts message from args when obj has userId", () => {
     const result = extractMessageContextStack({ userId: "123" }, ["User not found"]);
@@ -507,5 +728,28 @@ describe("extractMessageContextStack", () => {
         "message": "Test error",
       }
     `);
+  });
+});
+
+describe("getLevelsAtOrAbove", () => {
+  it("returns only error for error level", () => {
+    expect(getLevelsAtOrAbove("error")).toEqual(["error"]);
+  });
+
+  it("returns warn and error for warn level", () => {
+    expect(getLevelsAtOrAbove("warn")).toEqual(expect.arrayContaining(["warn", "error"]));
+    expect(getLevelsAtOrAbove("warn")).toHaveLength(2);
+  });
+
+  it("returns info, warn, and error for info level", () => {
+    expect(getLevelsAtOrAbove("info")).toEqual(expect.arrayContaining(["info", "warn", "error"]));
+    expect(getLevelsAtOrAbove("info")).toHaveLength(3);
+  });
+
+  it("returns all levels for debug level", () => {
+    expect(getLevelsAtOrAbove("debug")).toEqual(
+      expect.arrayContaining(["debug", "info", "warn", "error"]),
+    );
+    expect(getLevelsAtOrAbove("debug")).toHaveLength(4);
   });
 });

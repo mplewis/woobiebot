@@ -43,6 +43,8 @@ beforeEach(async () => {
     MAX_FILE_SIZE_MB: 1,
     LOG_LEVEL: "error",
     NODE_ENV: "test",
+    DISCORD_LOGGING_LEVEL: "error" as const,
+    DISCORD_LOGGING_TAGS: new Map(),
   };
 
   captchaManager = new CaptchaManager({

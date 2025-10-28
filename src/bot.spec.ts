@@ -37,6 +37,8 @@ beforeEach(() => {
     MAX_FILE_SIZE_MB: 1,
     LOG_LEVEL: "fatal" as const,
     NODE_ENV: "test" as const,
+    DISCORD_LOGGING_LEVEL: "error" as const,
+    DISCORD_LOGGING_TAGS: new Map(),
   };
 
   indexer = new FileIndexer({

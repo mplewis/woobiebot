@@ -1,9 +1,9 @@
 import { Bot } from "./bot.js";
 import { CaptchaManager } from "./captcha.js";
 import { config } from "./config.js";
-import { ErrorOutbox } from "./errorOutbox.js";
 import { FileIndexer } from "./indexer.js";
-import { enableDiscordLogging, log } from "./logger.js";
+import { enableMessageOutbox, log } from "./logger.js";
+import { getLevelsAtOrAbove, MessageOutbox } from "./messageOutbox.js";
 import { RateLimiter } from "./rateLimiter.js";
 import { WebServer } from "./webServer.js";
 
@@ -14,12 +14,15 @@ import { WebServer } from "./webServer.js";
 async function main() {
   log.info("Starting WoobieBot...");
 
-  let errorOutbox: ErrorOutbox | null = null;
-  if (config.DISCORD_ERROR_WEBHOOK_URL) {
-    errorOutbox = new ErrorOutbox(config.DISCORD_ERROR_WEBHOOK_URL, log);
-    errorOutbox.start();
-    enableDiscordLogging(errorOutbox);
-    log.info("Discord error logging enabled");
+  let messageOutbox: MessageOutbox | null = null;
+  if (config.DISCORD_LOGGING_WEBHOOK_URL) {
+    messageOutbox = new MessageOutbox(config.DISCORD_LOGGING_WEBHOOK_URL, log, {
+      levels: getLevelsAtOrAbove(config.DISCORD_LOGGING_LEVEL),
+      tags: config.DISCORD_LOGGING_TAGS,
+    });
+    messageOutbox.start();
+    enableMessageOutbox(messageOutbox);
+    log.info("Discord message logging enabled");
   }
 
   // Initialize file indexer
@@ -75,9 +78,9 @@ async function main() {
       await bot.stop();
       await webServer.stop();
       indexer.stop();
-      if (errorOutbox) {
-        await errorOutbox.flush();
-        await errorOutbox.stop();
+      if (messageOutbox) {
+        await messageOutbox.flush();
+        await messageOutbox.stop();
       }
       log.info("Shutdown complete");
       process.exit(0);

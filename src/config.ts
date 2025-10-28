@@ -5,6 +5,47 @@ if (process.env["NODE_ENV"] !== "test") {
   dotenv.config();
 }
 
+/**
+ * Parse comma-separated key:value tag pairs into a Map.
+ * Format: "key1:value1,key2:value2,key1:value3"
+ * Result: Map { "key1" => ["value1", "value3"], "key2" => ["value2"] }
+ */
+export function parseTagPairs(val: string): Map<string, string[]> {
+  if (!val) {
+    return new Map<string, string[]>();
+  }
+
+  const map = new Map<string, string[]>();
+  const pairs = val
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  for (const pair of pairs) {
+    const colonIndex = pair.indexOf(":");
+    if (colonIndex === -1) {
+      continue;
+    }
+
+    const key = pair.slice(0, colonIndex).trim();
+    const value = pair.slice(colonIndex + 1).trim();
+
+    if (!key || !value) {
+      continue;
+    }
+
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+    const values = map.get(key);
+    if (values) {
+      values.push(value);
+    }
+  }
+
+  return map;
+}
+
 const configSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, "Discord token is required"),
   DISCORD_CLIENT_ID: z.string().min(1, "Discord client ID is required"),
@@ -42,7 +83,9 @@ const configSchema = z.object({
   MAX_FILE_SIZE_MB: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  DISCORD_ERROR_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_LOGGING_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_LOGGING_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("error"),
+  DISCORD_LOGGING_TAGS: z.string().default("").transform(parseTagPairs),
 });
 
 /**
