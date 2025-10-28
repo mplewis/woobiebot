@@ -44,7 +44,8 @@
       "Bash(pnpm build)",
       "Bash(pnpm start)",
       "Bash(curl:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm exec biome:*)"
     ],
     "deny": [],
     "ask": []

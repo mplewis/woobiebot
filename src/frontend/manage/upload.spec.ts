@@ -1,5 +1,5 @@
 import { JSDOM } from "jsdom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Tests for file upload validation logic in the manage interface.
