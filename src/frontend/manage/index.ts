@@ -38,6 +38,11 @@ let DIRECTORY_TREE: DirectoryTree;
 let ALLOWED_EXTENSIONS: string[] = [];
 
 /**
+ * Maximum allowed file size in megabytes.
+ */
+let MAX_FILE_SIZE_MB = 0;
+
+/**
  * ID of the file currently selected for deletion (null if no file is selected).
  */
 let currentDeleteFileId: string | null = null;
@@ -212,6 +217,15 @@ async function handleUpload(event: Event): Promise<void> {
     return;
   }
 
+  const fileSizeMB = file.size / (1024 * 1024);
+  if (fileSizeMB > MAX_FILE_SIZE_MB) {
+    showStatus(
+      `File size ${fileSizeMB.toFixed(2)} MB exceeds maximum allowed size of ${MAX_FILE_SIZE_MB} MB`,
+      "error",
+    );
+    return;
+  }
+
   formData.append("userId", AUTH_DATA.userId);
   formData.append("signature", AUTH_DATA.signature);
   formData.append("expiresAt", AUTH_DATA.expiresAt.toString());
@@ -340,6 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
     DIRECTORY_TREE = manageData.directoryTree;
     ALLOWED_EXTENSIONS = manageData.allowedExtensions;
+    MAX_FILE_SIZE_MB = manageData.maxFileSizeMB;
 
     const form = document.getElementById("upload-form") as HTMLFormElement;
     form.addEventListener("submit", handleUpload);

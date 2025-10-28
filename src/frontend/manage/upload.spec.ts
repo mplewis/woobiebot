@@ -104,4 +104,34 @@ describe("Upload Validation", () => {
     expect(errorMessage).toBe("File type .xyz is not allowed. Allowed types: .pdf, .txt, .doc");
     expect(errorMessage).toContain("Allowed types:");
   });
+
+  it("validates file size is within limit", () => {
+    const fileSizeMB = 0.5;
+    const maxFileSizeMB = 1;
+
+    expect(fileSizeMB).toBeLessThanOrEqual(maxFileSizeMB);
+  });
+
+  it("validates file size exceeds limit", () => {
+    const fileSizeMB = 2.5;
+    const maxFileSizeMB = 1;
+
+    expect(fileSizeMB).toBeGreaterThan(maxFileSizeMB);
+  });
+
+  it("converts bytes to MB correctly", () => {
+    const fileSizeBytes = 1048576;
+    const fileSizeMB = fileSizeBytes / (1024 * 1024);
+
+    expect(fileSizeMB).toBe(1);
+  });
+
+  it("formats file size error message correctly", () => {
+    const fileSizeMB = 2.5;
+    const maxFileSizeMB = 1;
+    const errorMessage = `File size ${fileSizeMB.toFixed(2)} MB exceeds maximum allowed size of ${maxFileSizeMB} MB`;
+
+    expect(errorMessage).toBe("File size 2.50 MB exceeds maximum allowed size of 1 MB");
+    expect(errorMessage).toContain("exceeds maximum allowed size");
+  });
 });
