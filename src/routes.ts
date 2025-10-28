@@ -330,10 +330,10 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
   });
 
   /**
-   * POST /upload
+   * POST /manage/upload
    * Handle file uploads to the managed directory.
    */
-  app.post("/upload", async (request, reply) => {
+  app.post("/manage/upload", async (request, reply) => {
     try {
       const parts = request.parts();
       const fields: Record<string, string> = {};

@@ -234,7 +234,7 @@ async function handleUpload(event: Event): Promise<void> {
   showStatus("Uploading file...", "info");
 
   try {
-    const response = await fetch("/upload", {
+    const response = await fetch("/manage/upload", {
       method: "POST",
       body: formData,
     });

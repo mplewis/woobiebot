@@ -77,7 +77,7 @@ it("uploads file successfully to root directory", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -128,7 +128,7 @@ it("uploads file successfully to subdirectory", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -164,7 +164,7 @@ it("returns 400 when no file is provided", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -189,7 +189,7 @@ it("returns 400 when authentication data is missing", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -226,7 +226,7 @@ it("returns 403 when authentication token has expired", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -262,7 +262,7 @@ it("returns 403 when signature is invalid", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -301,7 +301,7 @@ it("sanitizes path and prevents directory traversal", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -348,7 +348,7 @@ it("rejects file with disallowed extension", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -387,7 +387,7 @@ it("accepts file with allowed extension (case insensitive)", async () => {
 
   const response = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers,
     payload,
   });
@@ -426,7 +426,7 @@ it("auto-renames file when duplicate exists", async () => {
 
   const response1 = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers: headers1,
     payload: payload1,
   });
@@ -450,7 +450,7 @@ it("auto-renames file when duplicate exists", async () => {
 
   const response2 = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers: headers2,
     payload: payload2,
   });
@@ -474,7 +474,7 @@ it("auto-renames file when duplicate exists", async () => {
 
   const response3 = await ctx.server.getApp().inject({
     method: "POST",
-    url: "/upload",
+    url: "/manage/upload",
     headers: headers3,
     payload: payload3,
   });
