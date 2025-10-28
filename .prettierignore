@@ -1,2 +1,5 @@
 # Template files with placeholders
 templates/
+
+# Lock files should not be formatted
+pnpm-lock.yaml
