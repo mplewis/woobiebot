@@ -33,6 +33,11 @@ let AUTH_DATA: AuthData;
 let DIRECTORY_TREE: DirectoryTree;
 
 /**
+ * List of allowed file extensions for uploads (e.g., ['.pdf', '.txt']).
+ */
+let ALLOWED_EXTENSIONS: string[] = [];
+
+/**
  * ID of the file currently selected for deletion (null if no file is selected).
  */
 let currentDeleteFileId: string | null = null;
@@ -189,6 +194,23 @@ async function handleUpload(event: Event): Promise<void> {
   const form = event.target as HTMLFormElement;
   const formData = new FormData(form);
   const uploadBtn = document.getElementById("upload-btn") as HTMLButtonElement;
+  const fileInput = document.getElementById("file") as HTMLInputElement;
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showStatus("Please select a file to upload", "error");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const fileName = file.name;
+  const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+  const normalizedAllowedExtensions = ALLOWED_EXTENSIONS.map((ext) => ext.toLowerCase());
+
+  if (!normalizedAllowedExtensions.includes(fileExtension)) {
+    const allowedList = ALLOWED_EXTENSIONS.join(", ");
+    showStatus(`File type ${fileExtension} is not allowed. Allowed types: ${allowedList}`, "error");
+    return;
+  }
 
   formData.append("userId", AUTH_DATA.userId);
   formData.append("signature", AUTH_DATA.signature);
@@ -317,9 +339,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       expiresAt: manageData.expiresAt,
     };
     DIRECTORY_TREE = manageData.directoryTree;
+    ALLOWED_EXTENSIONS = manageData.allowedExtensions;
 
     const form = document.getElementById("upload-form") as HTMLFormElement;
     form.addEventListener("submit", handleUpload);
+
+    const fileInput = document.getElementById("file") as HTMLInputElement;
+    fileInput.setAttribute("accept", ALLOWED_EXTENSIONS.join(","));
+
+    const fileLabel = document.querySelector('label[for="file"]') as HTMLLabelElement;
+    if (fileLabel) {
+      const extensionsDisplay = ALLOWED_EXTENSIONS.join(", ");
+      fileLabel.textContent = `Select file (${manageData.maxFileSizeMB} MB max, ${extensionsDisplay})`;
+    }
 
     const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
     renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);

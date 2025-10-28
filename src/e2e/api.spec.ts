@@ -173,6 +173,13 @@ it("returns manage data from API endpoint", async () => {
   expect(data).toHaveProperty("expiresAt", Number.parseInt(expiresAt, 10));
   expect(data).toHaveProperty("directoryTree");
   expect(typeof data.directoryTree).toBe("object");
+  expect(data).toHaveProperty("allowedExtensions");
+  expect(Array.isArray(data.allowedExtensions)).toBe(true);
+  expect(data.allowedExtensions.length).toBeGreaterThan(0);
+  expect(data.allowedExtensions).toContain(".txt");
+  expect(data).toHaveProperty("maxFileSizeMB");
+  expect(typeof data.maxFileSizeMB).toBe("number");
+  expect(data.maxFileSizeMB).toBeGreaterThan(0);
 });
 
 it("returns 400 when manage data API is missing parameters", async () => {

@@ -319,3 +319,81 @@ it("sanitizes path and prevents directory traversal", async () => {
   const outsideTempDir = join(ctx.tempDir, "..", "..", "..", "etc", fileName);
   await expect(access(outsideTempDir)).rejects.toThrow();
 });
+
+it("rejects file with disallowed extension", async () => {
+  const userId = "user123";
+  const manageUrl = ctx.server.generateManageUrl(userId);
+  const urlObj = new URL(manageUrl);
+  const signature = urlObj.searchParams.get("signature");
+  const expiresAt = urlObj.searchParams.get("expiresAt");
+
+  if (!signature || !expiresAt) {
+    throw new Error("Failed to generate manage URL");
+  }
+
+  const fileContent = "Test file with invalid extension";
+  const fileName = "test-file.xyz";
+
+  const { payload, headers } = createMultipartFormData(
+    {
+      userId,
+      signature,
+      expiresAt,
+    },
+    {
+      filename: fileName,
+      content: fileContent,
+    },
+  );
+
+  const response = await ctx.server.getApp().inject({
+    method: "POST",
+    url: "/upload",
+    headers,
+    payload,
+  });
+
+  expect(response.statusCode).toBe(400);
+  const body = response.json();
+  expect(body.error).toContain("File type .xyz is not allowed");
+  expect(body.error).toContain("Allowed types:");
+});
+
+it("accepts file with allowed extension (case insensitive)", async () => {
+  const userId = "user123";
+  const manageUrl = ctx.server.generateManageUrl(userId);
+  const urlObj = new URL(manageUrl);
+  const signature = urlObj.searchParams.get("signature");
+  const expiresAt = urlObj.searchParams.get("expiresAt");
+
+  if (!signature || !expiresAt) {
+    throw new Error("Failed to generate manage URL");
+  }
+
+  const fileContent = "Test file with uppercase extension";
+  const fileName = "test-file.TXT";
+
+  const { payload, headers } = createMultipartFormData(
+    {
+      userId,
+      signature,
+      expiresAt,
+    },
+    {
+      filename: fileName,
+      content: fileContent,
+    },
+  );
+
+  const response = await ctx.server.getApp().inject({
+    method: "POST",
+    url: "/upload",
+    headers,
+    payload,
+  });
+
+  expect(response.statusCode).toBe(200);
+  const body = response.json();
+  expect(body.success).toBe(true);
+  expect(body.filename).toBe(fileName);
+});

@@ -89,6 +89,10 @@ export const ManagePageDataSchema = z.object({
   directoryTree: DirectoryTreeSchema.describe(
     "Complete directory tree structure with all indexed files",
   ),
+  allowedExtensions: z
+    .array(z.string())
+    .describe("List of allowed file extensions (e.g., ['.pdf', '.txt'])"),
+  maxFileSizeMB: z.number().positive().describe("Maximum allowed file size in megabytes"),
 });
 
 export type ManagePageData = z.infer<typeof ManagePageDataSchema>;

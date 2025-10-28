@@ -27,13 +27,24 @@ export interface RoutesDependencies {
   indexer: FileIndexer;
   log: Logger;
   baseUrl: string;
+  allowedExtensions: readonly string[];
+  maxFileSizeMB: number;
 }
 
 /**
  * Register all HTTP routes for the web server.
  */
 export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): void {
-  const { urlSigner, captchaManager, rateLimiter, indexer, log, baseUrl } = deps;
+  const {
+    urlSigner,
+    captchaManager,
+    rateLimiter,
+    indexer,
+    log,
+    baseUrl,
+    allowedExtensions,
+    maxFileSizeMB,
+  } = deps;
 
   /**
    * GET /download
@@ -369,6 +380,23 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
         return reply.status(403).send({ error: "Invalid authentication signature" });
       }
 
+      // Validate file extension
+      const fileExtension = fileData.filename
+        .substring(fileData.filename.lastIndexOf("."))
+        .toLowerCase();
+      const normalizedAllowedExtensions = allowedExtensions.map((ext) => ext.toLowerCase());
+
+      if (!normalizedAllowedExtensions.includes(fileExtension)) {
+        const allowedList = allowedExtensions.join(", ");
+        log.info(
+          { userId, filename: fileData.filename, extension: fileExtension },
+          "File extension not allowed",
+        );
+        return reply.status(400).send({
+          error: `File type ${fileExtension} is not allowed. Allowed types: ${allowedList}`,
+        });
+      }
+
       const sanitizedDir = targetDirectory.replace(/\.\./g, "").replace(/^\/+/, "");
       const targetPath = join(indexer["directory"], sanitizedDir, fileData.filename);
       const targetDir = dirname(targetPath);
@@ -495,6 +523,8 @@ export function registerRoutes(app: FastifyInstance, deps: RoutesDependencies): 
       signature,
       expiresAt,
       directoryTree,
+      allowedExtensions,
+      maxFileSizeMB,
     });
   });
 

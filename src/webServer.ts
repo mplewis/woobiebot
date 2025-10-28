@@ -99,6 +99,8 @@ export class WebServer {
       indexer: deps.indexer,
       log: this.log,
       baseUrl: this.config.WEB_SERVER_BASE_URL,
+      allowedExtensions: this.config.FILE_EXTENSIONS,
+      maxFileSizeMB: this.config.MAX_FILE_SIZE_MB,
     });
   }
 
