@@ -5,7 +5,7 @@ import type { FileIndexerConfig } from "./indexer.js";
 import { FileIndexer } from "./indexer.js";
 import { createTestFiles } from "./testUtils.js";
 
-const TEST_DIR = join(process.cwd(), "test-files-temp");
+const TEST_DIR = join(process.cwd(), "tmp", "test-files-temp");
 
 afterEach(async () => {
   await rm(TEST_DIR, { recursive: true, force: true });

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { createTestFiles } from "./testUtils.js";
 
-const TEST_DIR = join(process.cwd(), "test-utils-temp");
+const TEST_DIR = join(process.cwd(), "tmp", "test-utils-temp");
 
 beforeEach(async () => {
   await rm(TEST_DIR, { recursive: true, force: true });

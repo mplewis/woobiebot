@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   bytesToMB,
   formatAllResultsList,
+  formatListResults,
   formatSearchResults,
   partitionResultsByScore,
 } from "./format.js";
-import type { SearchResult } from "./indexer.js";
+import type { FileMetadata, SearchResult } from "./indexer.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
 /**
@@ -431,5 +432,116 @@ describe("bytesToMB", () => {
 
   it("handles exact multiples of MB", () => {
     expect(bytesToMB(5242880)).toBe("5.00");
+  });
+});
+
+describe("formatListResults", () => {
+  function createFile(path: string, mtimeOffset: number): FileMetadata {
+    return {
+      id: `id-${path}`,
+      name: path.split("/").pop() || path,
+      path,
+      absolutePath: `/abs/${path}`,
+      size: 1024,
+      mtime: new Date(Date.now() - mtimeOffset * 1000),
+      mimeType: "text/plain",
+    };
+  }
+
+  it("formats recent files with default count of 20", () => {
+    const files: FileMetadata[] = Array.from({ length: 30 }, (_, i) =>
+      createFile(`file-${i}.txt`, i * 100),
+    );
+
+    const result = formatListResults({ files, mode: 20 });
+
+    expect(result.content).toBeDefined();
+    expect(result.content).toContain("20 most recent files:");
+    expect(result.content).toContain("file-0.txt");
+    expect(result.content).toContain("<t:");
+    expect(result.content).toContain(":R>");
+    expect(result.files).toBeUndefined();
+  });
+
+  it("formats recent files with custom count", () => {
+    const files: FileMetadata[] = Array.from({ length: 100 }, (_, i) =>
+      createFile(`file-${i}.txt`, i * 100),
+    );
+
+    const result = formatListResults({ files, mode: 50 });
+
+    expect(result.content).toBeDefined();
+    expect(result.content).toContain("50 most recent files (of 100 total):");
+    expect(result.content).toContain("file-0.txt");
+    expect(result.files).toBeUndefined();
+  });
+
+  it("formats all files alphabetically without timestamps", () => {
+    const files: FileMetadata[] = [
+      createFile("zebra.txt", 100),
+      createFile("apple.txt", 200),
+      createFile("banana.txt", 150),
+    ];
+
+    const result = formatListResults({ files, mode: "all" });
+
+    expect(result.content).toBeDefined();
+    expect(result.content).toContain("All 3 files:");
+    expect(result.content).toContain("- apple.txt");
+    expect(result.content).toContain("- banana.txt");
+    expect(result.content).toContain("- zebra.txt");
+    expect(result.content).not.toContain("<t:");
+    expect(result.files).toBeUndefined();
+
+    const lines = result.content?.split("\n").filter((line) => line.startsWith("-"));
+    expect(lines).toEqual(["- apple.txt", "- banana.txt", "- zebra.txt"]);
+  });
+
+  it("sorts recent files by modification time descending", () => {
+    const files: FileMetadata[] = [
+      createFile("old.txt", 300),
+      createFile("newest.txt", 0),
+      createFile("middle.txt", 150),
+    ];
+
+    const result = formatListResults({ files, mode: 3 });
+
+    expect(result.content).toBeDefined();
+    const lines = result.content?.split("\n").filter((line) => line.startsWith("-"));
+    expect(lines?.[0]).toContain("newest.txt");
+    expect(lines?.[1]).toContain("middle.txt");
+    expect(lines?.[2]).toContain("old.txt");
+  });
+
+  it("creates attachment when content exceeds Discord limit", () => {
+    const files: FileMetadata[] = Array.from({ length: 500 }, (_, i) =>
+      createFile(`very/long/path/to/file-with-a-very-long-name-${i}.txt`, i * 100),
+    );
+
+    const result = formatListResults({ files, mode: "all" });
+
+    expect(result.content).toBe("All 500 files:");
+    expect(result.files).toBeDefined();
+    expect(result.files).toHaveLength(1);
+    expect(result.files?.[0]?.name).toBe("all-files.txt");
+  });
+
+  it("uses correct attachment filename for recent files", () => {
+    const files: FileMetadata[] = Array.from({ length: 500 }, (_, i) =>
+      createFile(`very/long/path/to/file-with-a-very-long-name-${i}.txt`, i * 100),
+    );
+
+    const result = formatListResults({ files, mode: 100 });
+
+    expect(result.files).toBeDefined();
+    expect(result.files?.[0]?.name).toBe("recent-100-files.txt");
+  });
+
+  it("handles singular file correctly", () => {
+    const files: FileMetadata[] = [createFile("single.txt", 100)];
+
+    const result = formatListResults({ files, mode: "all" });
+
+    expect(result.content).toContain("All 1 file:");
   });
 });

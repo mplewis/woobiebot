@@ -9,7 +9,7 @@ import {
 import type { Logger } from "pino";
 import type { Config } from "./config.js";
 import { deployCommands } from "./deployCommands.js";
-import { formatAllResultsList, formatSearchResults } from "./format.js";
+import { formatAllResultsList, formatListResults, formatSearchResults } from "./format.js";
 import type { FileIndexer } from "./indexer.js";
 import { pluralize } from "./pluralize.js";
 import type { RateLimiter } from "./rateLimiter.js";
@@ -95,6 +95,11 @@ export class Bot {
         await this.handleManage(interaction);
         break;
       }
+      case "list": {
+        const mode = interaction.options.getString("count_or_all");
+        await this.handleList(interaction, mode);
+        break;
+      }
       default: {
         await interaction.editReply({ content: "Unknown command." });
       }
@@ -169,6 +174,52 @@ export class Bot {
     await interaction.editReply({
       content: `[Click here to manage files.](${manageUrl})\n\nThis link expires <t:${expiryTimestamp}:R>.`,
     });
+  }
+
+  /**
+   * Handle the list command to list files by date or alphabetically.
+   *
+   * @param interaction - The slash command interaction
+   * @param mode - List mode: "all" for all files, or number string for N recent files
+   */
+  private async handleList(
+    interaction: ChatInputCommandInteraction,
+    mode: string | null,
+  ): Promise<void> {
+    const userId = interaction.user.id;
+    this.log.info({ userId, mode }, "List command");
+
+    const allFiles = this.indexer.getAll();
+
+    if (allFiles.length === 0) {
+      await interaction.editReply({
+        content: "No files found.",
+      });
+      return;
+    }
+
+    let parsedMode: "all" | number;
+    if (mode === "all") {
+      parsedMode = "all";
+    } else if (mode) {
+      const num = Number.parseInt(mode, 10);
+      if (Number.isNaN(num) || num <= 0) {
+        await interaction.editReply({
+          content: 'Invalid mode. Use "all" or a positive number (e.g., "50").',
+        });
+        return;
+      }
+      parsedMode = num;
+    } else {
+      parsedMode = 20;
+    }
+
+    const formatted = formatListResults({
+      files: allFiles,
+      mode: parsedMode,
+    });
+
+    await interaction.editReply(formatted);
   }
 
   /**

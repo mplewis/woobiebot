@@ -5,7 +5,7 @@ import {
   ButtonStyle,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
-import type { SearchResult } from "./indexer.js";
+import type { FileMetadata, SearchResult } from "./indexer.js";
 import { pluralize } from "./pluralize.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
@@ -221,6 +221,80 @@ export function formatAllResultsList(
   const fileWord = pluralize(results.length, "file");
   return {
     content: `All ${results.length} ${fileWord} matching "${query}":`,
+    files: [attachment],
+  };
+}
+
+/**
+ * Options for formatting list results.
+ */
+export interface FormatListResultsOptions {
+  /** Files to list */
+  files: FileMetadata[];
+  /** List mode: "all" for alphabetical, or number for recent files */
+  mode: "all" | number;
+}
+
+/**
+ * Result of formatting list results.
+ */
+export interface FormattedListResults {
+  /** The formatted message content (if fits in Discord limit) */
+  content?: string;
+  /** File attachment (if content too long) */
+  files?: AttachmentBuilder[];
+}
+
+/**
+ * Format a list of files as either a message or attachment.
+ * For recent files (mode is number), shows timestamps and sorts by date descending.
+ * For all files (mode is "all"), sorts alphabetically with no timestamps.
+ *
+ * @param options - Configuration for formatting the list
+ * @returns Formatted message or attachment
+ */
+export function formatListResults(options: FormatListResultsOptions): FormattedListResults {
+  const { files, mode } = options;
+
+  let sortedFiles: FileMetadata[];
+  let showTimestamps = false;
+  let description: string;
+
+  if (mode === "all") {
+    sortedFiles = [...files].sort((a, b) => a.path.localeCompare(b.path));
+    description = `All ${files.length} ${pluralize(files.length, "file")}:`;
+  } else {
+    sortedFiles = [...files]
+      .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
+      .slice(0, mode);
+    showTimestamps = true;
+    const fileWord = pluralize(sortedFiles.length, "file");
+    description =
+      mode === 20
+        ? `${sortedFiles.length} most recent ${fileWord}:`
+        : `${sortedFiles.length} most recent ${fileWord} (of ${files.length} total):`;
+  }
+
+  const lines = sortedFiles.map((file) => {
+    if (showTimestamps) {
+      const timestamp = Math.floor(file.mtime.getTime() / 1000);
+      return `- ${file.path}: <t:${timestamp}:R>`;
+    }
+    return `- ${file.path}`;
+  });
+
+  const content = `${description}\n\n${lines.join("\n")}`;
+
+  if (content.length <= DISCORD_MAX_MESSAGE_LENGTH) {
+    return { content };
+  }
+
+  const fileContent = lines.join("\n");
+  const filename = mode === "all" ? "all-files.txt" : `recent-${mode}-files.txt`;
+  const attachment = new AttachmentBuilder(Buffer.from(fileContent, "utf-8")).setName(filename);
+
+  return {
+    content: description,
     files: [attachment],
   };
 }
