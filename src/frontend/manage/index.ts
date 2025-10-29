@@ -1,36 +1,16 @@
-import type {
-  AuthData,
-  DeleteResponse,
-  DirectoryTree,
-  FileMetadata,
-  ManagePageData,
-  RenameResponse,
-  UploadResponse,
-} from "../../shared/types.js";
-import { validateFilename, validateNoExistingFile } from "../../validation.js";
+import type { AuthData, DirectoryTree } from "../../shared/types.js";
+import { fetchManageData } from "./api.js";
 import {
-  cleanupDeletedDirectories,
-  getAllTreePaths,
-  isExpandedDirectory,
-  saveExpandedDirectories,
-  toggleDirectoryState,
-} from "./directoryState.js";
-import { isTreeEmpty, sortTreeEntries } from "./tree.js";
-
-/**
- * Fetches manage page data from the API using parameters from the URL query string.
- */
-async function fetchManageData(): Promise<ManagePageData> {
-  const params = new URLSearchParams(window.location.search);
-  const response = await fetch(`/api/manage?${params.toString()}`);
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to load manage data");
-  }
-
-  return await response.json();
-}
+  getCurrentDeleteFileName,
+  handleDeleteFile,
+  hideDeleteModal,
+  showDeleteModal,
+} from "./delete.js";
+import { cleanupDeletedDirectories } from "./directoryState.js";
+import { handleRename, openRenameBox, showRenameStatus, updateRenameButton } from "./rename.js";
+import { collapseAll, expandAll, renderDirectoryTree } from "./render.js";
+import { filterTree } from "./search.js";
+import { handleUpload, openUploadBox } from "./upload.js";
 
 /**
  * Authentication credentials for API requests.
@@ -53,330 +33,6 @@ let ALLOWED_EXTENSIONS: string[] = [];
 let MAX_FILE_SIZE_MB = 0;
 
 /**
- * ID of the file currently selected for deletion (null if no file is selected).
- */
-let currentDeleteFileId: string | null = null;
-
-/**
- * Name of the file currently selected for deletion (null if no file is selected).
- */
-let currentDeleteFileName: string | null = null;
-
-/**
- * ID of the file currently selected for rename/move (null if no file is selected).
- */
-let currentRenameFileId: string | null = null;
-
-/**
- * Path of the file currently selected for rename/move.
- */
-let currentRenameFilePath = "";
-
-/**
- * Name of the file currently selected for rename/move.
- */
-let currentRenameFileName = "";
-
-/**
- * Extracts the directory path from a full file path by removing the filename.
- *
- * @param filePath - The full path to the file
- */
-export function extractDirectoryPath(filePath: string): string {
-  const pathParts = filePath.split("/");
-  pathParts.pop();
-  return pathParts.join("/");
-}
-
-/**
- * Checks if a file extension is in the list of allowed extensions.
- *
- * @param fileName - The name of the file to check
- * @param allowedExtensions - List of allowed file extensions (e.g., ['.pdf', '.txt'])
- */
-export function isAllowedFileExtension(fileName: string, allowedExtensions: string[]): boolean {
-  const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
-  const normalizedAllowedExtensions = allowedExtensions.map((ext) => ext.toLowerCase());
-  return normalizedAllowedExtensions.includes(fileExtension);
-}
-
-/**
- * Validates file size against maximum allowed size in MB.
- *
- * @param fileSizeBytes - The file size in bytes
- * @param maxSizeMB - The maximum allowed file size in megabytes
- */
-export function validateFileSize(
-  fileSizeBytes: number,
-  maxSizeMB: number,
-): { valid: true } | { valid: false; actualSizeMB: number } {
-  const fileSizeMB = fileSizeBytes / (1024 * 1024);
-  if (fileSizeMB > maxSizeMB) {
-    return { valid: false, actualSizeMB: fileSizeMB };
-  }
-  return { valid: true };
-}
-
-/**
- * Normalizes a search term by trimming and converting to lowercase.
- *
- * @param searchTerm - The search term to normalize
- */
-export function normalizeSearchTerm(searchTerm: string): string {
-  return searchTerm.toLowerCase().trim();
-}
-
-/**
- * Checks if a filename matches a normalized search term (case-insensitive substring match).
- *
- * @param fileName - The filename to check
- * @param normalizedSearchTerm - The normalized search term to match against
- */
-export function fileMatchesSearch(fileName: string, normalizedSearchTerm: string): boolean {
-  return fileName.toLowerCase().includes(normalizedSearchTerm);
-}
-
-/**
- * Gets all filenames in a directory at the given path.
- *
- * @param dirPath - The directory path to get files from
- * @param tree - The directory tree to search in
- */
-export function getFilesInDirectory(dirPath: string, tree: DirectoryTree): string[] {
-  const pathParts = dirPath.split("/").filter((p) => p.length > 0);
-  let current: DirectoryTree | FileMetadata[] | undefined = tree;
-
-  for (const part of pathParts) {
-    if (current && typeof current === "object" && !Array.isArray(current)) {
-      current = current[part];
-    } else {
-      return [];
-    }
-  }
-
-  if (current && typeof current === "object" && !Array.isArray(current)) {
-    const files = current["_files"];
-    if (Array.isArray(files)) {
-      return files.map((f) => f.name);
-    }
-  }
-
-  return [];
-}
-
-/**
- * Determines the rename button state and text based on form values.
- *
- * @param currentPath - The current directory path of the file
- * @param currentName - The current name of the file
- * @param newPath - The new directory path for the file
- * @param newName - The new name for the file
- * @param allowedExtensions - List of allowed file extensions
- * @param filesInTargetDir - List of existing filenames in the target directory
- */
-export function determineRenameOperation(
-  currentPath: string,
-  currentName: string,
-  newPath: string,
-  newName: string,
-  allowedExtensions: string[],
-  filesInTargetDir: string[],
-): {
-  disabled: boolean;
-  buttonText: string;
-  statusMessage: string;
-  statusType: "info" | "error" | "success";
-} {
-  const validationError = validateFilename(newName, allowedExtensions);
-
-  if (validationError) {
-    return {
-      disabled: true,
-      buttonText: "Rename",
-      statusMessage: validationError,
-      statusType: "error",
-    };
-  }
-
-  const pathChanged = newPath !== currentPath;
-  const nameChanged = newName !== currentName;
-
-  if (!pathChanged && !nameChanged) {
-    return {
-      disabled: true,
-      buttonText: "Rename",
-      statusMessage: "",
-      statusType: "info",
-    };
-  }
-
-  const existingFileError = validateNoExistingFile(newName, filesInTargetDir);
-
-  if (existingFileError && (pathChanged || nameChanged)) {
-    return {
-      disabled: true,
-      buttonText: "Rename",
-      statusMessage: existingFileError,
-      statusType: "error",
-    };
-  }
-
-  let buttonText = "Rename";
-  if (pathChanged && nameChanged) {
-    buttonText = "Move and Rename";
-  } else if (pathChanged) {
-    buttonText = "Move";
-  }
-
-  return {
-    disabled: false,
-    buttonText,
-    statusMessage: "",
-    statusType: "info",
-  };
-}
-
-/**
- * Opens the upload form and pre-fills the directory path input.
- * Scrolls smoothly to the upload section and focuses the directory input.
- *
- * @param directoryPath - The directory path to pre-fill in the upload form
- */
-export function openUploadBox(directoryPath: string): void {
-  const directoryInput = document.getElementById("directory") as HTMLInputElement;
-
-  directoryInput.value = directoryPath;
-
-  const uploadSection = document.getElementById("upload-section") as HTMLDivElement;
-  uploadSection.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  setTimeout(() => {
-    directoryInput.focus();
-  }, 500);
-}
-
-/**
- * Recursively renders the directory tree structure into DOM elements.
- * Creates expandable directory entries with upload buttons and file entries with download links.
- * Directories are sorted alphabetically, as are files within each directory.
- *
- * @param tree - The directory tree structure to render
- * @param container - The HTML element to render the tree into
- * @param authData - Authentication data for generating download URLs
- * @param level - Current nesting level for indentation (defaults to 0)
- * @param parentPath - Array of parent directory names for building full paths (defaults to empty)
- */
-export function renderDirectoryTree(
-  tree: DirectoryTree,
-  container: HTMLElement,
-  authData: AuthData,
-  level: number = 0,
-  parentPath: string[] = [],
-): void {
-  if (isTreeEmpty(tree)) {
-    container.innerHTML = '<div class="tree-empty">No files indexed yet</div>';
-    return;
-  }
-
-  const entries = sortTreeEntries(tree);
-
-  for (const entry of entries) {
-    if (entry.type === "directory") {
-      const { name, value } = entry;
-      const fullPath = [...parentPath, name].join("/");
-
-      const details = document.createElement("details");
-      details.open = isExpandedDirectory(fullPath);
-      details.style.paddingLeft = `${level * 20}px`;
-
-      details.addEventListener("toggle", () => {
-        toggleDirectoryState(fullPath, details.open);
-      });
-
-      const summary = document.createElement("summary");
-      summary.className = "tree-dir";
-
-      const folderContent = document.createElement("span");
-      folderContent.className = "tree-dir-content";
-
-      const icon = document.createElement("span");
-      icon.className = "tree-icon";
-      icon.textContent = "▶";
-
-      const folderName = document.createElement("span");
-      folderName.className = "tree-dir-name";
-      folderName.textContent = name;
-
-      const uploadBtn = document.createElement("button");
-      uploadBtn.className = "tree-upload-btn btn-xs";
-      uploadBtn.textContent = "↑";
-      uploadBtn.title = "Upload to this folder";
-      uploadBtn.setAttribute("aria-label", `Upload to ${name} folder`);
-      uploadBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openUploadBox(fullPath);
-      };
-
-      folderContent.appendChild(icon);
-      folderContent.appendChild(folderName);
-      summary.appendChild(folderContent);
-      summary.appendChild(uploadBtn);
-
-      details.appendChild(summary);
-
-      const subContainer = document.createElement("div");
-      renderDirectoryTree(value, subContainer, authData, level + 1, [...parentPath, name]);
-      details.appendChild(subContainer);
-
-      container.appendChild(details);
-    } else {
-      const { files } = entry;
-      for (const file of files) {
-        const fileDiv = document.createElement("div");
-        fileDiv.className = "tree-file";
-        fileDiv.style.paddingLeft = `${level * 20}px`;
-
-        const downloadUrl = `/manage/download/${file.id}?userId=${authData.userId}&signature=${authData.signature}&expiresAt=${authData.expiresAt}`;
-
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.textContent = file.name;
-        link.className = "tree-file-link";
-        link.download = file.name;
-
-        const renameBtn = document.createElement("button");
-        renameBtn.className = "tree-file-rename btn-xs";
-        renameBtn.textContent = "✎";
-        renameBtn.title = "Rename/move file";
-        renameBtn.setAttribute("aria-label", `Rename/move ${file.name}`);
-        renameBtn.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openRenameBox(file.id, file.path, file.name);
-        };
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "tree-file-delete btn-xs";
-        deleteBtn.textContent = "✕";
-        deleteBtn.title = "Delete file";
-        deleteBtn.setAttribute("aria-label", `Delete ${file.name}`);
-        deleteBtn.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          showDeleteModal(file.id, file.name);
-        };
-
-        fileDiv.appendChild(link);
-        fileDiv.appendChild(renameBtn);
-        fileDiv.appendChild(deleteBtn);
-        container.appendChild(fileDiv);
-      }
-    }
-  }
-}
-
-/**
  * Displays a status message with the specified type.
  *
  * @param message - The status message to display
@@ -388,397 +44,6 @@ export function showStatus(message: string, type: "info" | "error" | "success"):
   status.className = `status ${type}`;
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
-}
-
-/**
- * Handles file upload form submission.
- * Appends authentication data to the form, submits to the server, and refreshes on success.
- *
- * @param event - The form submit event
- */
-async function handleUpload(event: Event): Promise<void> {
-  event.preventDefault();
-
-  const form = event.target as HTMLFormElement;
-  const formData = new FormData(form);
-  const uploadBtn = document.getElementById("upload-btn") as HTMLButtonElement;
-  const fileInput = document.getElementById("file") as HTMLInputElement;
-
-  if (!fileInput.files || fileInput.files.length === 0) {
-    showStatus("Please select a file to upload", "error");
-    return;
-  }
-
-  const file = fileInput.files[0];
-  const fileName = file.name;
-
-  if (!isAllowedFileExtension(fileName, ALLOWED_EXTENSIONS)) {
-    const allowedList = ALLOWED_EXTENSIONS.join(", ");
-    const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
-    showStatus(`File type ${fileExtension} is not allowed. Allowed types: ${allowedList}`, "error");
-    return;
-  }
-
-  const sizeValidation = validateFileSize(file.size, MAX_FILE_SIZE_MB);
-  if (!sizeValidation.valid) {
-    showStatus(
-      `File size ${sizeValidation.actualSizeMB.toFixed(2)} MB exceeds maximum allowed size of ${MAX_FILE_SIZE_MB} MB`,
-      "error",
-    );
-    return;
-  }
-
-  formData.append("userId", AUTH_DATA.userId);
-  formData.append("signature", AUTH_DATA.signature);
-  formData.append("expiresAt", AUTH_DATA.expiresAt.toString());
-
-  uploadBtn.disabled = true;
-  showStatus("Uploading file...", "info");
-
-  try {
-    const response = await fetch("/manage/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const result = (await response.json()) as UploadResponse;
-
-    if (response.ok) {
-      showStatus("File uploaded successfully! Refreshing file list...", "success");
-      form.reset();
-      window.location.reload();
-    } else {
-      showStatus(`Upload failed: ${result.error || "Unknown error"}`, "error");
-      uploadBtn.disabled = false;
-    }
-  } catch (error) {
-    showStatus(
-      `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      "error",
-    );
-    uploadBtn.disabled = false;
-  }
-}
-
-/**
- * Shows the delete confirmation modal for a specific file.
- * Stores the file ID and name in module-level state for later deletion.
- *
- * @param fileId - ID of the file to delete
- * @param fileName - Name of the file to delete (used for confirmation)
- */
-export function showDeleteModal(fileId: string, fileName: string): void {
-  currentDeleteFileId = fileId;
-  currentDeleteFileName = fileName;
-
-  const modal = document.getElementById("delete-modal") as HTMLDivElement;
-  const filenameSpan = document.getElementById("delete-filename") as HTMLSpanElement;
-  const confirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
-  const confirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
-
-  filenameSpan.textContent = fileName;
-  confirmInput.value = "";
-  confirmInput.placeholder = fileName;
-  confirmBtn.disabled = true;
-
-  modal.classList.add("show");
-  setTimeout(() => confirmInput.focus(), 100);
-}
-
-/**
- * Hides the delete confirmation modal and clears the stored file ID and name.
- */
-export function hideDeleteModal(): void {
-  const modal = document.getElementById("delete-modal") as HTMLDivElement;
-  modal.classList.remove("show");
-  currentDeleteFileId = null;
-  currentDeleteFileName = null;
-}
-
-/**
- * Handles the confirmed deletion of a file.
- * Sends a DELETE request to the server and refreshes the page on success.
- * Keeps the modal open and disabled during the deletion and refresh process.
- */
-async function handleDeleteFile(): Promise<void> {
-  if (!currentDeleteFileId) {
-    return;
-  }
-
-  const confirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
-  const cancelBtn = document.getElementById("delete-cancel-btn") as HTMLButtonElement;
-  const confirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
-
-  confirmBtn.disabled = true;
-  cancelBtn.disabled = true;
-  confirmInput.disabled = true;
-  confirmBtn.textContent = "Deleting...";
-
-  try {
-    const deleteUrl = `/manage/delete/${currentDeleteFileId}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
-    const response = await fetch(deleteUrl, {
-      method: "DELETE",
-    });
-
-    const result = (await response.json()) as DeleteResponse;
-
-    if (response.ok) {
-      confirmBtn.textContent = "Refreshing...";
-      showStatus("File deleted successfully! Refreshing file list...", "success");
-      window.location.reload();
-    } else {
-      showStatus(`Delete failed: ${result.error || "Unknown error"}`, "error");
-      confirmBtn.disabled = false;
-      cancelBtn.disabled = false;
-      confirmInput.disabled = false;
-      confirmBtn.textContent = "Delete File";
-    }
-  } catch (error) {
-    showStatus(
-      `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      "error",
-    );
-    confirmBtn.disabled = false;
-    cancelBtn.disabled = false;
-    confirmInput.disabled = false;
-    confirmBtn.textContent = "Delete File";
-  }
-}
-
-/**
- * Opens the rename form and pre-fills it with the current file information.
- * Scrolls smoothly to the rename section and focuses the new name input.
- *
- * @param fileId - ID of the file to rename/move
- * @param filePath - Current path of the file
- * @param fileName - Current name of the file
- */
-export function openRenameBox(fileId: string, filePath: string, fileName: string): void {
-  currentRenameFileId = fileId;
-  currentRenameFilePath = filePath;
-  currentRenameFileName = fileName;
-
-  const currentPath = extractDirectoryPath(filePath);
-
-  const currentPathInput = document.getElementById("current-path") as HTMLInputElement;
-  const currentNameInput = document.getElementById("current-name") as HTMLInputElement;
-  const newPathInput = document.getElementById("new-path") as HTMLInputElement;
-  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
-
-  currentPathInput.value = currentPath || "/";
-  currentNameInput.value = fileName;
-  newPathInput.value = currentPath;
-  newNameInput.value = fileName;
-
-  const renameSection = document.getElementById("rename-section") as HTMLDivElement;
-  renameSection.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  setTimeout(() => {
-    newNameInput.focus();
-    newNameInput.select();
-  }, 500);
-
-  updateRenameButton();
-}
-
-/**
- * Updates the rename button text and disabled state based on form values.
- * Also validates the filename and shows errors in real-time.
- */
-export function updateRenameButton(): void {
-  const newPathInput = document.getElementById("new-path") as HTMLInputElement;
-  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
-  const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
-
-  const currentPath = extractDirectoryPath(currentRenameFilePath);
-  const newPath = newPathInput.value.trim();
-  const newName = newNameInput.value.trim();
-
-  const targetPath = newPath || "";
-  const filesInTargetDir = getFilesInDirectory(targetPath, DIRECTORY_TREE);
-
-  const result = determineRenameOperation(
-    currentPath,
-    currentRenameFileName,
-    newPath,
-    newName,
-    ALLOWED_EXTENSIONS,
-    filesInTargetDir,
-  );
-
-  renameBtn.disabled = result.disabled;
-  renameBtn.textContent = result.buttonText;
-  showRenameStatus(result.statusMessage, result.statusType);
-}
-
-/**
- * Displays a status message in the rename section with the specified type.
- *
- * @param message - The status message to display
- * @param type - The message type determining the visual style
- */
-export function showRenameStatus(message: string, type: "info" | "error" | "success"): void {
-  const status = document.getElementById("rename-status") as HTMLDivElement;
-  status.textContent = message;
-  status.className = `status ${type}`;
-  status.setAttribute("role", "status");
-  status.setAttribute("aria-label", "polite");
-
-  if (message) {
-    status.style.display = "";
-  } else {
-    status.style.display = "none";
-  }
-}
-
-/**
- * Handles rename/move form submission.
- * Sends rename/move request to the server and refreshes on success.
- *
- * @param event - The form submit event
- */
-async function handleRename(event: Event): Promise<void> {
-  event.preventDefault();
-
-  if (!currentRenameFileId) {
-    return;
-  }
-
-  const form = event.target as HTMLFormElement;
-  const formData = new FormData(form);
-  const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
-  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
-
-  const newName = newNameInput.value.trim();
-
-  const validationError = validateFilename(newName, ALLOWED_EXTENSIONS);
-  if (validationError) {
-    showRenameStatus(validationError, "error");
-    return;
-  }
-
-  formData.append("fileId", currentRenameFileId);
-  formData.append("userId", AUTH_DATA.userId);
-  formData.append("signature", AUTH_DATA.signature);
-  formData.append("expiresAt", AUTH_DATA.expiresAt.toString());
-
-  renameBtn.disabled = true;
-  const originalText = renameBtn.textContent;
-  renameBtn.textContent = originalText === "Move" ? "Moving..." : "Renaming...";
-  showRenameStatus(originalText === "Move" ? "Moving file..." : "Renaming file...", "info");
-
-  try {
-    const response = await fetch("/manage/rename", {
-      method: "POST",
-      body: formData,
-    });
-
-    const result = (await response.json()) as RenameResponse;
-
-    if (response.ok) {
-      showRenameStatus(
-        `${result.message || "Operation completed"} Refreshing file list...`,
-        "success",
-      );
-      form.reset();
-      window.location.reload();
-    } else {
-      showRenameStatus(`Operation failed: ${result.error || "Unknown error"}`, "error");
-      renameBtn.disabled = false;
-      renameBtn.textContent = originalText;
-    }
-  } catch (error) {
-    showRenameStatus(
-      `Operation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      "error",
-    );
-    renameBtn.disabled = false;
-    renameBtn.textContent = originalText;
-  }
-}
-
-/**
- * Expands all directory details elements in the file tree and saves state.
- */
-export function expandAll(): void {
-  const allDetails = document.querySelectorAll("#file-tree details");
-  allDetails.forEach((detail) => {
-    (detail as HTMLDetailsElement).open = true;
-  });
-
-  const allPaths = getAllTreePaths(DIRECTORY_TREE);
-  saveExpandedDirectories(allPaths);
-}
-
-/**
- * Collapses all directory details elements in the file tree and clears state.
- */
-export function collapseAll(): void {
-  const allDetails = document.querySelectorAll("#file-tree details");
-  allDetails.forEach((detail) => {
-    (detail as HTMLDetailsElement).open = false;
-  });
-
-  saveExpandedDirectories(new Set());
-}
-
-/**
- * Filters the file tree to show only files and directories that match the search term.
- * Files are matched by filename (case-insensitive substring match).
- * Directories are shown if they contain any matching files or subdirectories.
- *
- * @param searchTerm - The search term to filter by (case-insensitive)
- */
-export function filterTree(searchTerm: string): void {
-  const normalizedSearch = normalizeSearchTerm(searchTerm);
-  const allFiles = document.querySelectorAll("#file-tree .tree-file");
-  const allDetails = document.querySelectorAll("#file-tree details");
-
-  if (normalizedSearch === "") {
-    allFiles.forEach((file) => {
-      file.classList.remove("hidden");
-    });
-    allDetails.forEach((detail) => {
-      detail.classList.remove("hidden");
-    });
-    return;
-  }
-
-  allFiles.forEach((file) => {
-    const fileLink = file.querySelector(".tree-file-link");
-    if (fileLink) {
-      const fileName = fileLink.textContent || "";
-      if (fileMatchesSearch(fileName, normalizedSearch)) {
-        file.classList.remove("hidden");
-      } else {
-        file.classList.add("hidden");
-      }
-    }
-  });
-
-  allDetails.forEach((detail) => {
-    const hasVisibleChildren = (element: HTMLElement): boolean => {
-      const childFiles = element.querySelectorAll(":scope > div > .tree-file");
-      const childDetails = element.querySelectorAll(":scope > div > details");
-
-      const hasVisibleFile = Array.from(childFiles).some(
-        (file) => !file.classList.contains("hidden"),
-      );
-
-      const hasVisibleSubdir = Array.from(childDetails).some((child) => {
-        return !child.classList.contains("hidden") && hasVisibleChildren(child as HTMLElement);
-      });
-
-      return hasVisibleFile || hasVisibleSubdir;
-    };
-
-    if (hasVisibleChildren(detail as HTMLElement)) {
-      detail.classList.remove("hidden");
-      (detail as HTMLDetailsElement).open = true;
-    } else {
-      detail.classList.add("hidden");
-    }
-  });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -795,7 +60,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     MAX_FILE_SIZE_MB = manageData.maxFileSizeMB;
 
     const form = document.getElementById("upload-form") as HTMLFormElement;
-    form.addEventListener("submit", handleUpload);
+    form.addEventListener("submit", (e) =>
+      handleUpload(e, AUTH_DATA, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, showStatus),
+    );
 
     const fileInput = document.getElementById("file") as HTMLInputElement;
     fileInput.setAttribute("accept", ALLOWED_EXTENSIONS.join(","));
@@ -808,11 +75,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
     cleanupDeletedDirectories(DIRECTORY_TREE);
-    renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer, AUTH_DATA);
+    renderDirectoryTree(
+      DIRECTORY_TREE,
+      fileTreeContainer,
+      AUTH_DATA,
+      0,
+      [],
+      openUploadBox,
+      (fileId, filePath, fileName) =>
+        openRenameBox(fileId, filePath, fileName, () =>
+          updateRenameButton(DIRECTORY_TREE, ALLOWED_EXTENSIONS, showRenameStatus),
+        ),
+      showDeleteModal,
+    );
 
     const expandAllBtn = document.getElementById("expand-all-btn") as HTMLButtonElement;
     const collapseAllBtn = document.getElementById("collapse-all-btn") as HTMLButtonElement;
-    expandAllBtn.addEventListener("click", expandAll);
+    expandAllBtn.addEventListener("click", () => expandAll(DIRECTORY_TREE));
     collapseAllBtn.addEventListener("click", collapseAll);
 
     const searchInput = document.getElementById("search-input") as HTMLInputElement;
@@ -845,10 +124,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     deleteConfirmInput.addEventListener("input", (e) => {
       const target = e.target as HTMLInputElement;
-      deleteConfirmBtn.disabled = target.value.trim() !== currentDeleteFileName;
+      deleteConfirmBtn.disabled = target.value.trim() !== getCurrentDeleteFileName();
     });
 
-    deleteConfirmBtn.addEventListener("click", handleDeleteFile);
+    deleteConfirmBtn.addEventListener("click", () => handleDeleteFile(AUTH_DATA, showStatus));
     deleteCancelBtn.addEventListener("click", hideDeleteModal);
 
     const deleteModal = document.getElementById("delete-modal") as HTMLDivElement;
@@ -862,10 +141,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const newPathInput = document.getElementById("new-path") as HTMLInputElement;
     const newNameInput = document.getElementById("new-name") as HTMLInputElement;
 
-    renameForm.addEventListener("submit", handleRename);
+    renameForm.addEventListener("submit", (e) => handleRename(e, AUTH_DATA, ALLOWED_EXTENSIONS));
 
-    newPathInput.addEventListener("input", updateRenameButton);
-    newNameInput.addEventListener("input", updateRenameButton);
+    newPathInput.addEventListener("input", () =>
+      updateRenameButton(DIRECTORY_TREE, ALLOWED_EXTENSIONS, showRenameStatus),
+    );
+    newNameInput.addEventListener("input", () =>
+      updateRenameButton(DIRECTORY_TREE, ALLOWED_EXTENSIONS, showRenameStatus),
+    );
   } catch (error) {
     console.error("Failed to load manage data:", error);
     showStatus(
