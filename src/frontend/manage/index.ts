@@ -78,6 +78,142 @@ let currentRenameFilePath = "";
 let currentRenameFileName = "";
 
 /**
+ * Extracts the directory path from a full file path by removing the filename.
+ */
+export function extractDirectoryPath(filePath: string): string {
+  const pathParts = filePath.split("/");
+  pathParts.pop();
+  return pathParts.join("/");
+}
+
+/**
+ * Checks if a file extension is in the list of allowed extensions.
+ */
+export function isAllowedFileExtension(fileName: string, allowedExtensions: string[]): boolean {
+  const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+  const normalizedAllowedExtensions = allowedExtensions.map((ext) => ext.toLowerCase());
+  return normalizedAllowedExtensions.includes(fileExtension);
+}
+
+/**
+ * Validates file size against maximum allowed size in MB.
+ */
+export function validateFileSize(
+  fileSizeBytes: number,
+  maxSizeMB: number,
+): { valid: true } | { valid: false; actualSizeMB: number } {
+  const fileSizeMB = fileSizeBytes / (1024 * 1024);
+  if (fileSizeMB > maxSizeMB) {
+    return { valid: false, actualSizeMB: fileSizeMB };
+  }
+  return { valid: true };
+}
+
+/**
+ * Normalizes a search term by trimming and converting to lowercase.
+ */
+export function normalizeSearchTerm(searchTerm: string): string {
+  return searchTerm.toLowerCase().trim();
+}
+
+/**
+ * Checks if a filename matches a normalized search term (case-insensitive substring match).
+ */
+export function fileMatchesSearch(fileName: string, normalizedSearchTerm: string): boolean {
+  return fileName.toLowerCase().includes(normalizedSearchTerm);
+}
+
+/**
+ * Gets all filenames in a directory at the given path.
+ */
+export function getFilesInDirectory(dirPath: string, tree: DirectoryTree): string[] {
+  const pathParts = dirPath.split("/").filter((p) => p.length > 0);
+  let current: DirectoryTree | FileMetadata[] | undefined = tree;
+
+  for (const part of pathParts) {
+    if (current && typeof current === "object" && !Array.isArray(current)) {
+      current = current[part];
+    } else {
+      return [];
+    }
+  }
+
+  if (current && typeof current === "object" && !Array.isArray(current)) {
+    const files = current["_files"];
+    if (Array.isArray(files)) {
+      return files.map((f) => f.name);
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Determines the rename button state and text based on form values.
+ */
+export function determineRenameOperation(
+  currentPath: string,
+  currentName: string,
+  newPath: string,
+  newName: string,
+  allowedExtensions: string[],
+  filesInTargetDir: string[],
+): {
+  disabled: boolean;
+  buttonText: string;
+  statusMessage: string;
+  statusType: "info" | "error" | "success";
+} {
+  const validationError = validateFilename(newName, allowedExtensions);
+
+  if (validationError) {
+    return {
+      disabled: true,
+      buttonText: "Rename",
+      statusMessage: validationError,
+      statusType: "error",
+    };
+  }
+
+  const pathChanged = newPath !== currentPath;
+  const nameChanged = newName !== currentName;
+
+  if (!pathChanged && !nameChanged) {
+    return {
+      disabled: true,
+      buttonText: "Rename",
+      statusMessage: "",
+      statusType: "info",
+    };
+  }
+
+  const existingFileError = validateNoExistingFile(newName, filesInTargetDir);
+
+  if (existingFileError && (pathChanged || nameChanged)) {
+    return {
+      disabled: true,
+      buttonText: "Rename",
+      statusMessage: existingFileError,
+      statusType: "error",
+    };
+  }
+
+  let buttonText = "Rename";
+  if (pathChanged && nameChanged) {
+    buttonText = "Move and Rename";
+  } else if (pathChanged) {
+    buttonText = "Move";
+  }
+
+  return {
+    disabled: false,
+    buttonText,
+    statusMessage: "",
+    statusType: "info",
+  };
+}
+
+/**
  * Opens the upload form and pre-fills the directory path input.
  * Scrolls smoothly to the upload section and focuses the directory input.
  *
@@ -250,19 +386,18 @@ async function handleUpload(event: Event): Promise<void> {
 
   const file = fileInput.files[0];
   const fileName = file.name;
-  const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
-  const normalizedAllowedExtensions = ALLOWED_EXTENSIONS.map((ext) => ext.toLowerCase());
 
-  if (!normalizedAllowedExtensions.includes(fileExtension)) {
+  if (!isAllowedFileExtension(fileName, ALLOWED_EXTENSIONS)) {
     const allowedList = ALLOWED_EXTENSIONS.join(", ");
+    const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
     showStatus(`File type ${fileExtension} is not allowed. Allowed types: ${allowedList}`, "error");
     return;
   }
 
-  const fileSizeMB = file.size / (1024 * 1024);
-  if (fileSizeMB > MAX_FILE_SIZE_MB) {
+  const sizeValidation = validateFileSize(file.size, MAX_FILE_SIZE_MB);
+  if (!sizeValidation.valid) {
     showStatus(
-      `File size ${fileSizeMB.toFixed(2)} MB exceeds maximum allowed size of ${MAX_FILE_SIZE_MB} MB`,
+      `File size ${sizeValidation.actualSizeMB.toFixed(2)} MB exceeds maximum allowed size of ${MAX_FILE_SIZE_MB} MB`,
       "error",
     );
     return;
@@ -398,9 +533,7 @@ function openRenameBox(fileId: string, filePath: string, fileName: string): void
   currentRenameFilePath = filePath;
   currentRenameFileName = fileName;
 
-  const pathParts = filePath.split("/");
-  pathParts.pop();
-  const currentPath = pathParts.join("/");
+  const currentPath = extractDirectoryPath(filePath);
 
   const currentPathInput = document.getElementById("current-path") as HTMLInputElement;
   const currentNameInput = document.getElementById("current-name") as HTMLInputElement;
@@ -424,31 +557,6 @@ function openRenameBox(fileId: string, filePath: string, fileName: string): void
 }
 
 /**
- * Gets all filenames in a directory at the given path.
- */
-function getFilesInDirectory(dirPath: string): string[] {
-  const pathParts = dirPath.split("/").filter((p) => p.length > 0);
-  let current: DirectoryTree | FileMetadata[] | undefined = DIRECTORY_TREE;
-
-  for (const part of pathParts) {
-    if (current && typeof current === "object" && !Array.isArray(current)) {
-      current = current[part];
-    } else {
-      return [];
-    }
-  }
-
-  if (current && typeof current === "object" && !Array.isArray(current)) {
-    const files = current["_files"];
-    if (Array.isArray(files)) {
-      return files.map((f) => f.name);
-    }
-  }
-
-  return [];
-}
-
-/**
  * Updates the rename button text and disabled state based on form values.
  * Also validates the filename and shows errors in real-time.
  */
@@ -457,52 +565,25 @@ function updateRenameButton(): void {
   const newNameInput = document.getElementById("new-name") as HTMLInputElement;
   const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
 
-  const pathParts = currentRenameFilePath.split("/");
-  pathParts.pop();
-  const currentPath = pathParts.join("/");
-
+  const currentPath = extractDirectoryPath(currentRenameFilePath);
   const newPath = newPathInput.value.trim();
   const newName = newNameInput.value.trim();
 
-  const validationError = validateFilename(newName, ALLOWED_EXTENSIONS);
-
-  if (validationError) {
-    showRenameStatus(validationError, "error");
-    renameBtn.disabled = true;
-    renameBtn.textContent = "Rename";
-    return;
-  }
-
-  const pathChanged = newPath !== currentPath;
-  const nameChanged = newName !== currentRenameFileName;
-
-  if (!pathChanged && !nameChanged) {
-    showRenameStatus("", "info");
-    renameBtn.disabled = true;
-    renameBtn.textContent = "Rename";
-    return;
-  }
-
   const targetPath = newPath || "";
-  const filesInTargetDir = getFilesInDirectory(targetPath);
-  const existingFileError = validateNoExistingFile(newName, filesInTargetDir);
+  const filesInTargetDir = getFilesInDirectory(targetPath, DIRECTORY_TREE);
 
-  if (existingFileError && (pathChanged || nameChanged)) {
-    showRenameStatus(existingFileError, "error");
-    renameBtn.disabled = true;
-    renameBtn.textContent = "Rename";
-    return;
-  }
+  const result = determineRenameOperation(
+    currentPath,
+    currentRenameFileName,
+    newPath,
+    newName,
+    ALLOWED_EXTENSIONS,
+    filesInTargetDir,
+  );
 
-  showRenameStatus("", "info");
-  renameBtn.disabled = false;
-  if (pathChanged && nameChanged) {
-    renameBtn.textContent = "Move and Rename";
-  } else if (pathChanged) {
-    renameBtn.textContent = "Move";
-  } else {
-    renameBtn.textContent = "Rename";
-  }
+  renameBtn.disabled = result.disabled;
+  renameBtn.textContent = result.buttonText;
+  showRenameStatus(result.statusMessage, result.statusType);
 }
 
 /**
@@ -624,7 +705,7 @@ function collapseAll(): void {
  * @param searchTerm - The search term to filter by (case-insensitive)
  */
 function filterTree(searchTerm: string): void {
-  const normalizedSearch = searchTerm.toLowerCase().trim();
+  const normalizedSearch = normalizeSearchTerm(searchTerm);
   const allFiles = document.querySelectorAll("#file-tree .tree-file");
   const allDetails = document.querySelectorAll("#file-tree details");
 
@@ -641,8 +722,8 @@ function filterTree(searchTerm: string): void {
   allFiles.forEach((file) => {
     const fileLink = file.querySelector(".tree-file-link");
     if (fileLink) {
-      const fileName = fileLink.textContent?.toLowerCase() || "";
-      if (fileName.includes(normalizedSearch)) {
+      const fileName = fileLink.textContent || "";
+      if (fileMatchesSearch(fileName, normalizedSearch)) {
         file.classList.remove("hidden");
       } else {
         file.classList.add("hidden");
