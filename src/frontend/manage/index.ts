@@ -5,6 +5,13 @@ import type {
   ManagePageData,
   UploadResponse,
 } from "../../shared/types.js";
+import {
+  cleanupDeletedDirectories,
+  getAllTreePaths,
+  isExpandedDirectory,
+  saveExpandedDirectories,
+  toggleDirectoryState,
+} from "./directoryState.js";
 import { isTreeEmpty, sortTreeEntries } from "./tree.js";
 
 /**
@@ -97,9 +104,15 @@ function renderDirectoryTree(
   for (const entry of entries) {
     if (entry.type === "directory") {
       const { name, value } = entry;
+      const fullPath = [...parentPath, name].join("/");
+
       const details = document.createElement("details");
-      details.open = false;
+      details.open = isExpandedDirectory(fullPath);
       details.style.paddingLeft = `${level * 20}px`;
+
+      details.addEventListener("toggle", () => {
+        toggleDirectoryState(fullPath, details.open);
+      });
 
       const summary = document.createElement("summary");
       summary.className = "tree-dir";
@@ -123,7 +136,6 @@ function renderDirectoryTree(
       uploadBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const fullPath = [...parentPath, name].join("/");
         openUploadBox(fullPath);
       };
 
@@ -344,23 +356,28 @@ async function handleDeleteFile(): Promise<void> {
 }
 
 /**
- * Expands all folder details elements in the file tree.
+ * Expands all directory details elements in the file tree and saves state.
  */
 function expandAll(): void {
   const allDetails = document.querySelectorAll("#file-tree details");
   allDetails.forEach((detail) => {
     (detail as HTMLDetailsElement).open = true;
   });
+
+  const allPaths = getAllTreePaths(DIRECTORY_TREE);
+  saveExpandedDirectories(allPaths);
 }
 
 /**
- * Collapses all folder details elements in the file tree.
+ * Collapses all directory details elements in the file tree and clears state.
  */
 function collapseAll(): void {
   const allDetails = document.querySelectorAll("#file-tree details");
   allDetails.forEach((detail) => {
     (detail as HTMLDetailsElement).open = false;
   });
+
+  saveExpandedDirectories(new Set());
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -389,6 +406,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
+    cleanupDeletedDirectories(DIRECTORY_TREE);
     renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
 
     const expandAllBtn = document.getElementById("expand-all-btn") as HTMLButtonElement;

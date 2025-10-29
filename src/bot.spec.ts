@@ -260,7 +260,9 @@ describe("list interaction", () => {
       options: {
         getString: (name: string) => (name === "count_or_all" ? (mode ?? null) : null),
       },
-      deferReply: async () => {},
+      deferReply: async () => {
+        /* Mock method - no action needed */
+      },
       editReply: async (content) => {
         reply = content;
       },
@@ -390,7 +392,9 @@ describe("help interaction", () => {
       options: {
         getString: () => null,
       },
-      deferReply: async () => {},
+      deferReply: async () => {
+        /* Mock method - no action needed */
+      },
       editReply: async (content) => {
         reply = content.content || "";
       },
