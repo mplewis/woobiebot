@@ -7,6 +7,7 @@ import { createManageAuthHook } from "../authMiddleware.js";
 import { bytesToMB } from "../format.js";
 import type { FileIndexer } from "../indexer.js";
 import type { UrlSigner } from "../urlSigner.js";
+import { validateFilename, validateNoExistingFile } from "../validation.js";
 
 /**
  * Generates a unique filename by appending a numeric suffix if the file already exists.
@@ -263,6 +264,114 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageRoutesDep
         log.error({ err }, "File upload failed");
       }
       return reply.status(500).send({ error: "File upload failed" });
+    }
+  });
+
+  /**
+   * POST /manage/rename
+   * Rename or move a file for authenticated manage users.
+   */
+  app.post("/manage/rename", async (request, reply) => {
+    const fields: Record<string, string> = {};
+
+    try {
+      const parts = request.parts();
+
+      for await (const part of parts) {
+        if (part.type === "field") {
+          fields[part.fieldname] = part.value as string;
+        }
+      }
+
+      request.body = fields;
+      await manageAuthHook(request, reply);
+
+      if (reply.sent) {
+        return;
+      }
+
+      if (!request.manageAuth) {
+        return reply.status(500).send({ error: "Authentication context not set" });
+      }
+
+      const { userId } = request.manageAuth;
+      const { fileId, newPath = "", newName } = fields;
+
+      if (!fileId || !newName) {
+        return reply.status(400).send({ error: "Missing required fields" });
+      }
+
+      const renameLog = log.child({ feature: "manage", operation: "rename", userId, fileId });
+
+      // Validate filename
+      const validationError = validateFilename(newName, [...allowedExtensions]);
+      if (validationError) {
+        renameLog.warn({ newName, validationError }, "Rename rejected due to validation error");
+        return reply.status(400).send({ error: validationError });
+      }
+
+      const file = indexer.getById(fileId);
+      if (!file) {
+        renameLog.error("File not found");
+        return reply.status(404).send({ error: "File not found" });
+      }
+
+      const { stat } = await import("node:fs/promises");
+
+      try {
+        await stat(file.absolutePath);
+      } catch {
+        renameLog.error({ path: file.absolutePath }, "File exists in index but not on disk");
+        return reply.status(500).send({ error: "File temporarily unavailable" });
+      }
+
+      const sanitizedNewPath = newPath.replace(/\.\./g, "").replace(/^\/+/, "");
+      const targetDir = join(indexer["directory"], sanitizedNewPath);
+      const targetPath = join(targetDir, newName);
+
+      const currentDir = dirname(file.absolutePath);
+      const isMove = currentDir !== targetDir;
+
+      await mkdir(targetDir, { recursive: true });
+
+      const { readdir } = await import("node:fs/promises");
+      const filesInTargetDir = await readdir(targetDir);
+      const existingFileError = validateNoExistingFile(newName, filesInTargetDir);
+
+      if (existingFileError) {
+        renameLog.warn({ newName, targetDir }, "Rename rejected due to existing file");
+        return reply.status(400).send({ error: existingFileError });
+      }
+
+      await rename(file.absolutePath, targetPath);
+
+      const stats = await stat(targetPath);
+      const fileSizeMB = bytesToMB(stats.size);
+      const oldPath = file.path.substring(0, file.path.lastIndexOf("/")) || "/";
+      const newPathDisplay = sanitizedNewPath || "/";
+
+      renameLog.info(
+        {
+          oldName: file.name,
+          newName,
+          oldPath,
+          newPath: newPathDisplay,
+          fileSizeMB,
+          operation: isMove ? "move" : "rename",
+        },
+        isMove ? "File moved" : "File renamed",
+      );
+
+      await indexer.rescan();
+
+      return reply.send({
+        success: true,
+        message: isMove ? "File moved successfully" : "File renamed successfully",
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      log.error({ err, errorMessage }, "Rename/move failed");
+      return reply.status(500).send({ error: "Failed to rename/move file" });
     }
   });
 

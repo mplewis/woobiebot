@@ -41,10 +41,39 @@
             <input type="file" id="file" name="file" required />
           </div>
 
-          <button type="submit" id="upload-btn" class="btn-lg">Upload</button>
+          <button type="submit" id="upload-btn">Upload</button>
         </form>
 
         <div id="status" class="status"></div>
+      </div>
+
+      <div class="rename-section" id="rename-section">
+        <h2>Rename or Move File</h2>
+        <form id="rename-form">
+          <div class="form-group">
+            <label for="current-path">Current Path</label>
+            <input type="text" id="current-path" readonly disabled />
+          </div>
+
+          <div class="form-group">
+            <label for="current-name">Current Name</label>
+            <input type="text" id="current-name" readonly disabled />
+          </div>
+
+          <div class="form-group">
+            <label for="new-path">New Path</label>
+            <input type="text" id="new-path" name="newPath" placeholder="<root directory>" />
+          </div>
+
+          <div class="form-group">
+            <label for="new-name">New Name</label>
+            <input type="text" id="new-name" name="newName" placeholder="filename.ext" required />
+          </div>
+
+          <button type="submit" id="rename-btn" disabled>Rename</button>
+        </form>
+
+        <div id="rename-status" class="status"></div>
       </div>
     </div>
 

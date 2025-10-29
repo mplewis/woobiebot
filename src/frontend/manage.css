@@ -50,7 +50,8 @@ h2 {
   padding-bottom: 10px;
 }
 
-.upload-section {
+.upload-section,
+.rename-section {
   margin-top: 20px;
   padding: 20px;
   background: #f8f9fa;
@@ -58,7 +59,8 @@ h2 {
   border: 2px solid #667eea;
 }
 
-.upload-section h2 {
+.upload-section h2,
+.rename-section h2 {
   margin-top: 0;
 }
 
@@ -365,6 +367,31 @@ summary.tree-dir:hover .tree-upload-btn {
   background-color: rgba(102, 126, 234, 0.2);
 }
 
+.tree-file-rename {
+  background: #667eea;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.3s ease,
+    transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.tree-file:hover .tree-file-rename {
+  opacity: 1;
+}
+
+.tree-file-rename:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.tree-file-rename:active {
+  background: #4557c2;
+  transform: translateY(0);
+}
+
 .tree-file-delete {
   background: #dc3545;
   opacity: 0;
@@ -373,6 +400,7 @@ summary.tree-dir:hover .tree-upload-btn {
     background-color 0.3s ease,
     transform 0.2s ease;
   flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .tree-file:hover .tree-file-delete {

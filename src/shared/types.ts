@@ -119,6 +119,17 @@ export const DeleteResponseSchema = z.object({
 export type DeleteResponse = z.infer<typeof DeleteResponseSchema>;
 
 /**
+ * Response from the file rename/move endpoint.
+ */
+export const RenameResponseSchema = z.object({
+  success: z.boolean().describe("Whether the rename/move succeeded"),
+  error: z.string().optional().describe("Error message if rename/move failed"),
+  message: z.string().optional().describe("Success message"),
+});
+
+export type RenameResponse = z.infer<typeof RenameResponseSchema>;
+
+/**
  * Request body for the captcha verification endpoint.
  */
 export const VerifyRequestSchema = z.object({

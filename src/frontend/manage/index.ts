@@ -2,9 +2,12 @@ import type {
   AuthData,
   DeleteResponse,
   DirectoryTree,
+  FileMetadata,
   ManagePageData,
+  RenameResponse,
   UploadResponse,
 } from "../../shared/types.js";
+import { validateFilename, validateNoExistingFile } from "../../validation.js";
 import {
   cleanupDeletedDirectories,
   getAllTreePaths,
@@ -58,6 +61,21 @@ let currentDeleteFileId: string | null = null;
  * Name of the file currently selected for deletion (null if no file is selected).
  */
 let currentDeleteFileName: string | null = null;
+
+/**
+ * ID of the file currently selected for rename/move (null if no file is selected).
+ */
+let currentRenameFileId: string | null = null;
+
+/**
+ * Path of the file currently selected for rename/move.
+ */
+let currentRenameFilePath = "";
+
+/**
+ * Name of the file currently selected for rename/move.
+ */
+let currentRenameFileName = "";
 
 /**
  * Opens the upload form and pre-fills the directory path input.
@@ -166,6 +184,17 @@ function renderDirectoryTree(
         link.className = "tree-file-link";
         link.download = file.name;
 
+        const renameBtn = document.createElement("button");
+        renameBtn.className = "tree-file-rename btn-xs";
+        renameBtn.textContent = "✎";
+        renameBtn.title = "Rename/move file";
+        renameBtn.setAttribute("aria-label", `Rename/move ${file.name}`);
+        renameBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openRenameBox(file.id, file.path, file.name);
+        };
+
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "tree-file-delete btn-xs";
         deleteBtn.textContent = "✕";
@@ -178,6 +207,7 @@ function renderDirectoryTree(
         };
 
         fileDiv.appendChild(link);
+        fileDiv.appendChild(renameBtn);
         fileDiv.appendChild(deleteBtn);
         container.appendChild(fileDiv);
       }
@@ -356,6 +386,212 @@ async function handleDeleteFile(): Promise<void> {
 }
 
 /**
+ * Opens the rename form and pre-fills it with the current file information.
+ * Scrolls smoothly to the rename section and focuses the new name input.
+ *
+ * @param fileId - ID of the file to rename/move
+ * @param filePath - Current path of the file
+ * @param fileName - Current name of the file
+ */
+function openRenameBox(fileId: string, filePath: string, fileName: string): void {
+  currentRenameFileId = fileId;
+  currentRenameFilePath = filePath;
+  currentRenameFileName = fileName;
+
+  const pathParts = filePath.split("/");
+  pathParts.pop();
+  const currentPath = pathParts.join("/");
+
+  const currentPathInput = document.getElementById("current-path") as HTMLInputElement;
+  const currentNameInput = document.getElementById("current-name") as HTMLInputElement;
+  const newPathInput = document.getElementById("new-path") as HTMLInputElement;
+  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
+
+  currentPathInput.value = currentPath || "/";
+  currentNameInput.value = fileName;
+  newPathInput.value = currentPath;
+  newNameInput.value = fileName;
+
+  const renameSection = document.getElementById("rename-section") as HTMLDivElement;
+  renameSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  setTimeout(() => {
+    newNameInput.focus();
+    newNameInput.select();
+  }, 500);
+
+  updateRenameButton();
+}
+
+/**
+ * Gets all filenames in a directory at the given path.
+ */
+function getFilesInDirectory(dirPath: string): string[] {
+  const pathParts = dirPath.split("/").filter((p) => p.length > 0);
+  let current: DirectoryTree | FileMetadata[] | undefined = DIRECTORY_TREE;
+
+  for (const part of pathParts) {
+    if (current && typeof current === "object" && !Array.isArray(current)) {
+      current = current[part];
+    } else {
+      return [];
+    }
+  }
+
+  if (current && typeof current === "object" && !Array.isArray(current)) {
+    const files = current["_files"];
+    if (Array.isArray(files)) {
+      return files.map((f) => f.name);
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Updates the rename button text and disabled state based on form values.
+ * Also validates the filename and shows errors in real-time.
+ */
+function updateRenameButton(): void {
+  const newPathInput = document.getElementById("new-path") as HTMLInputElement;
+  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
+  const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
+
+  const pathParts = currentRenameFilePath.split("/");
+  pathParts.pop();
+  const currentPath = pathParts.join("/");
+
+  const newPath = newPathInput.value.trim();
+  const newName = newNameInput.value.trim();
+
+  const validationError = validateFilename(newName, ALLOWED_EXTENSIONS);
+
+  if (validationError) {
+    showRenameStatus(validationError, "error");
+    renameBtn.disabled = true;
+    renameBtn.textContent = "Rename";
+    return;
+  }
+
+  const pathChanged = newPath !== currentPath;
+  const nameChanged = newName !== currentRenameFileName;
+
+  if (!pathChanged && !nameChanged) {
+    showRenameStatus("", "info");
+    renameBtn.disabled = true;
+    renameBtn.textContent = "Rename";
+    return;
+  }
+
+  const targetPath = newPath || "";
+  const filesInTargetDir = getFilesInDirectory(targetPath);
+  const existingFileError = validateNoExistingFile(newName, filesInTargetDir);
+
+  if (existingFileError && (pathChanged || nameChanged)) {
+    showRenameStatus(existingFileError, "error");
+    renameBtn.disabled = true;
+    renameBtn.textContent = "Rename";
+    return;
+  }
+
+  showRenameStatus("", "info");
+  renameBtn.disabled = false;
+  if (pathChanged && nameChanged) {
+    renameBtn.textContent = "Move and Rename";
+  } else if (pathChanged) {
+    renameBtn.textContent = "Move";
+  } else {
+    renameBtn.textContent = "Rename";
+  }
+}
+
+/**
+ * Displays a status message in the rename section with the specified type.
+ *
+ * @param message - The status message to display
+ * @param type - The message type determining the visual style
+ */
+function showRenameStatus(message: string, type: "info" | "error" | "success"): void {
+  const status = document.getElementById("rename-status") as HTMLDivElement;
+  status.textContent = message;
+  status.className = `status ${type}`;
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-label", "polite");
+
+  if (message) {
+    status.style.display = "";
+  } else {
+    status.style.display = "none";
+  }
+}
+
+/**
+ * Handles rename/move form submission.
+ * Sends rename/move request to the server and refreshes on success.
+ *
+ * @param event - The form submit event
+ */
+async function handleRename(event: Event): Promise<void> {
+  event.preventDefault();
+
+  if (!currentRenameFileId) {
+    return;
+  }
+
+  const form = event.target as HTMLFormElement;
+  const formData = new FormData(form);
+  const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
+  const newNameInput = document.getElementById("new-name") as HTMLInputElement;
+
+  const newName = newNameInput.value.trim();
+
+  const validationError = validateFilename(newName, ALLOWED_EXTENSIONS);
+  if (validationError) {
+    showRenameStatus(validationError, "error");
+    return;
+  }
+
+  formData.append("fileId", currentRenameFileId);
+  formData.append("userId", AUTH_DATA.userId);
+  formData.append("signature", AUTH_DATA.signature);
+  formData.append("expiresAt", AUTH_DATA.expiresAt.toString());
+
+  renameBtn.disabled = true;
+  const originalText = renameBtn.textContent;
+  renameBtn.textContent = originalText === "Move" ? "Moving..." : "Renaming...";
+  showRenameStatus(originalText === "Move" ? "Moving file..." : "Renaming file...", "info");
+
+  try {
+    const response = await fetch("/manage/rename", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = (await response.json()) as RenameResponse;
+
+    if (response.ok) {
+      showRenameStatus(
+        `${result.message || "Operation completed"} Refreshing file list...`,
+        "success",
+      );
+      form.reset();
+      window.location.reload();
+    } else {
+      showRenameStatus(`Operation failed: ${result.error || "Unknown error"}`, "error");
+      renameBtn.disabled = false;
+      renameBtn.textContent = originalText;
+    }
+  } catch (error) {
+    showRenameStatus(
+      `Operation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      "error",
+    );
+    renameBtn.disabled = false;
+    renameBtn.textContent = originalText;
+  }
+}
+
+/**
  * Expands all directory details elements in the file tree and saves state.
  */
 function expandAll(): void {
@@ -515,6 +751,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         hideDeleteModal();
       }
     });
+
+    const renameForm = document.getElementById("rename-form") as HTMLFormElement;
+    const newPathInput = document.getElementById("new-path") as HTMLInputElement;
+    const newNameInput = document.getElementById("new-name") as HTMLInputElement;
+
+    renameForm.addEventListener("submit", handleRename);
+
+    newPathInput.addEventListener("input", updateRenameButton);
+    newNameInput.addEventListener("input", updateRenameButton);
   } catch (error) {
     console.error("Failed to load manage data:", error);
     showStatus(
