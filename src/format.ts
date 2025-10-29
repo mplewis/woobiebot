@@ -264,9 +264,7 @@ export function formatListResults(options: FormatListResultsOptions): FormattedL
     sortedFiles = [...files].sort((a, b) => a.path.localeCompare(b.path));
     description = `All ${files.length} ${pluralize(files.length, "file")}:`;
   } else {
-    sortedFiles = [...files]
-      .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
-      .slice(0, mode);
+    sortedFiles = [...files].sort((a, b) => b.mtime.getTime() - a.mtime.getTime()).slice(0, mode);
     showTimestamps = true;
     const fileWord = pluralize(sortedFiles.length, "file");
     description =

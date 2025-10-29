@@ -16,6 +16,23 @@ import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
 
 /**
+ * Help text displayed when users run the /help command.
+ * Documents all available Discord slash commands and their usage.
+ */
+const HELP_TEXT = `
+\`/search <query>\`: Search for files and get download links
+- \`/search pusheen\`: Searches for files with "pusheen" in the name
+
+\`/list [count_or_all]\`: List most recent files
+- \`/list\`: Lists 20 most recent files
+- \`/list 50\`: Lists 50 most recent files
+- \`/list all\`: Lists all files
+
+\`/manage\`: Get a link to the file management interface
+- Link expires after 1 hour
+`.trim();
+
+/**
  * Dependencies for the Bot.
  */
 export interface BotDependencies {
@@ -98,6 +115,10 @@ export class Bot {
       case "list": {
         const mode = interaction.options.getString("count_or_all");
         await this.handleList(interaction, mode);
+        break;
+      }
+      case "help": {
+        await this.handleHelp(interaction);
         break;
       }
       default: {
@@ -220,6 +241,18 @@ export class Bot {
     });
 
     await interaction.editReply(formatted);
+  }
+
+  /**
+   * Handle the help command to show information about available commands.
+   *
+   * @param interaction - The slash command interaction
+   */
+  private async handleHelp(interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId = interaction.user.id;
+    this.log.info({ userId }, "Help command");
+
+    await interaction.editReply({ content: HELP_TEXT });
   }
 
   /**

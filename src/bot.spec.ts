@@ -258,7 +258,7 @@ describe("list interaction", () => {
       commandName: "list",
       user: { id: "test-user-123" },
       options: {
-        getString: (name: string) => (name === "count_or_all" ? mode ?? null : null),
+        getString: (name: string) => (name === "count_or_all" ? (mode ?? null) : null),
       },
       deferReply: async () => {},
       editReply: async (content) => {
@@ -345,7 +345,7 @@ describe("list interaction", () => {
     const reply = mockInteraction.getCapturedReply();
 
     expect(typeof reply).toBe("object");
-    expect((reply as { content?: string }).content).toContain('Invalid mode');
+    expect((reply as { content?: string }).content).toContain("Invalid mode");
   });
 
   it("returns message when no files found", async () => {
@@ -367,6 +367,73 @@ describe("list interaction", () => {
 
     expect(typeof reply).toBe("object");
     expect((reply as { content?: string }).content).toBe("No files found.");
+  });
+});
+
+describe("help interaction", () => {
+  type MockInteraction = {
+    commandName: string;
+    user: { id: string };
+    options: {
+      getString: (name: string) => string | null;
+    };
+    deferReply: () => Promise<void>;
+    editReply: (content: { content?: string }) => Promise<void>;
+    getCapturedReply: () => string;
+  };
+
+  const createMockInteraction = (): MockInteraction => {
+    let reply = "";
+    return {
+      commandName: "help",
+      user: { id: "test-user-123" },
+      options: {
+        getString: () => null,
+      },
+      deferReply: async () => {},
+      editReply: async (content) => {
+        reply = content.content || "";
+      },
+      getCapturedReply: () => reply,
+    };
+  };
+
+  const callHandleCommand = async (botInstance: Bot, mockInteraction: MockInteraction) => {
+    const handleCommand = (
+      botInstance as unknown as { handleCommand: (interaction: unknown) => Promise<void> }
+    ).handleCommand;
+    await handleCommand.call(botInstance, mockInteraction);
+  };
+
+  it("shows help text with all available commands", async () => {
+    const mockInteraction = createMockInteraction();
+    await callHandleCommand(bot, mockInteraction);
+    const reply = mockInteraction.getCapturedReply();
+
+    expect(reply).toContain("/search");
+    expect(reply).toContain("/list");
+    expect(reply).toContain("/manage");
+  });
+
+  it("includes descriptions for each command", async () => {
+    const mockInteraction = createMockInteraction();
+    await callHandleCommand(bot, mockInteraction);
+    const reply = mockInteraction.getCapturedReply();
+
+    expect(reply).toContain("Search for files");
+    expect(reply).toContain("List most recent files");
+    expect(reply).toContain("file management interface");
+  });
+
+  it("includes examples for commands", async () => {
+    const mockInteraction = createMockInteraction();
+    await callHandleCommand(bot, mockInteraction);
+    const reply = mockInteraction.getCapturedReply();
+
+    expect(reply).toContain("/search pusheen");
+    expect(reply).toContain("/list 50");
+    expect(reply).toContain("Lists 20 most recent");
+    expect(reply).toContain("Lists all files");
   });
 });
 

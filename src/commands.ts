@@ -23,4 +23,7 @@ export const commands = [
         .setDescription('"all" for all files, or number (e.g. "50") for N recent (default: 20)')
         .setRequired(false),
     ),
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("Show information about all available commands"),
 ];
