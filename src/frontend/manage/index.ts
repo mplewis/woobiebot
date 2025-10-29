@@ -79,6 +79,8 @@ let currentRenameFileName = "";
 
 /**
  * Extracts the directory path from a full file path by removing the filename.
+ *
+ * @param filePath - The full path to the file
  */
 export function extractDirectoryPath(filePath: string): string {
   const pathParts = filePath.split("/");
@@ -88,6 +90,9 @@ export function extractDirectoryPath(filePath: string): string {
 
 /**
  * Checks if a file extension is in the list of allowed extensions.
+ *
+ * @param fileName - The name of the file to check
+ * @param allowedExtensions - List of allowed file extensions (e.g., ['.pdf', '.txt'])
  */
 export function isAllowedFileExtension(fileName: string, allowedExtensions: string[]): boolean {
   const fileExtension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
@@ -97,6 +102,9 @@ export function isAllowedFileExtension(fileName: string, allowedExtensions: stri
 
 /**
  * Validates file size against maximum allowed size in MB.
+ *
+ * @param fileSizeBytes - The file size in bytes
+ * @param maxSizeMB - The maximum allowed file size in megabytes
  */
 export function validateFileSize(
   fileSizeBytes: number,
@@ -111,6 +119,8 @@ export function validateFileSize(
 
 /**
  * Normalizes a search term by trimming and converting to lowercase.
+ *
+ * @param searchTerm - The search term to normalize
  */
 export function normalizeSearchTerm(searchTerm: string): string {
   return searchTerm.toLowerCase().trim();
@@ -118,6 +128,9 @@ export function normalizeSearchTerm(searchTerm: string): string {
 
 /**
  * Checks if a filename matches a normalized search term (case-insensitive substring match).
+ *
+ * @param fileName - The filename to check
+ * @param normalizedSearchTerm - The normalized search term to match against
  */
 export function fileMatchesSearch(fileName: string, normalizedSearchTerm: string): boolean {
   return fileName.toLowerCase().includes(normalizedSearchTerm);
@@ -125,6 +138,9 @@ export function fileMatchesSearch(fileName: string, normalizedSearchTerm: string
 
 /**
  * Gets all filenames in a directory at the given path.
+ *
+ * @param dirPath - The directory path to get files from
+ * @param tree - The directory tree to search in
  */
 export function getFilesInDirectory(dirPath: string, tree: DirectoryTree): string[] {
   const pathParts = dirPath.split("/").filter((p) => p.length > 0);
@@ -150,6 +166,13 @@ export function getFilesInDirectory(dirPath: string, tree: DirectoryTree): strin
 
 /**
  * Determines the rename button state and text based on form values.
+ *
+ * @param currentPath - The current directory path of the file
+ * @param currentName - The current name of the file
+ * @param newPath - The new directory path for the file
+ * @param newName - The new name for the file
+ * @param allowedExtensions - List of allowed file extensions
+ * @param filesInTargetDir - List of existing filenames in the target directory
  */
 export function determineRenameOperation(
   currentPath: string,
@@ -219,7 +242,7 @@ export function determineRenameOperation(
  *
  * @param directoryPath - The directory path to pre-fill in the upload form
  */
-function openUploadBox(directoryPath: string): void {
+export function openUploadBox(directoryPath: string): void {
   const directoryInput = document.getElementById("directory") as HTMLInputElement;
 
   directoryInput.value = directoryPath;
@@ -239,12 +262,14 @@ function openUploadBox(directoryPath: string): void {
  *
  * @param tree - The directory tree structure to render
  * @param container - The HTML element to render the tree into
+ * @param authData - Authentication data for generating download URLs
  * @param level - Current nesting level for indentation (defaults to 0)
  * @param parentPath - Array of parent directory names for building full paths (defaults to empty)
  */
-function renderDirectoryTree(
+export function renderDirectoryTree(
   tree: DirectoryTree,
   container: HTMLElement,
+  authData: AuthData,
   level: number = 0,
   parentPath: string[] = [],
 ): void {
@@ -301,7 +326,7 @@ function renderDirectoryTree(
       details.appendChild(summary);
 
       const subContainer = document.createElement("div");
-      renderDirectoryTree(value, subContainer, level + 1, [...parentPath, name]);
+      renderDirectoryTree(value, subContainer, authData, level + 1, [...parentPath, name]);
       details.appendChild(subContainer);
 
       container.appendChild(details);
@@ -312,7 +337,7 @@ function renderDirectoryTree(
         fileDiv.className = "tree-file";
         fileDiv.style.paddingLeft = `${level * 20}px`;
 
-        const downloadUrl = `/manage/download/${file.id}?userId=${AUTH_DATA.userId}&signature=${AUTH_DATA.signature}&expiresAt=${AUTH_DATA.expiresAt}`;
+        const downloadUrl = `/manage/download/${file.id}?userId=${authData.userId}&signature=${authData.signature}&expiresAt=${authData.expiresAt}`;
 
         const link = document.createElement("a");
         link.href = downloadUrl;
@@ -357,7 +382,7 @@ function renderDirectoryTree(
  * @param message - The status message to display
  * @param type - The message type determining the visual style
  */
-function showStatus(message: string, type: "info" | "error" | "success"): void {
+export function showStatus(message: string, type: "info" | "error" | "success"): void {
   const status = document.getElementById("status") as HTMLDivElement;
   status.textContent = message;
   status.className = `status ${type}`;
@@ -442,7 +467,7 @@ async function handleUpload(event: Event): Promise<void> {
  * @param fileId - ID of the file to delete
  * @param fileName - Name of the file to delete (used for confirmation)
  */
-function showDeleteModal(fileId: string, fileName: string): void {
+export function showDeleteModal(fileId: string, fileName: string): void {
   currentDeleteFileId = fileId;
   currentDeleteFileName = fileName;
 
@@ -463,7 +488,7 @@ function showDeleteModal(fileId: string, fileName: string): void {
 /**
  * Hides the delete confirmation modal and clears the stored file ID and name.
  */
-function hideDeleteModal(): void {
+export function hideDeleteModal(): void {
   const modal = document.getElementById("delete-modal") as HTMLDivElement;
   modal.classList.remove("show");
   currentDeleteFileId = null;
@@ -528,7 +553,7 @@ async function handleDeleteFile(): Promise<void> {
  * @param filePath - Current path of the file
  * @param fileName - Current name of the file
  */
-function openRenameBox(fileId: string, filePath: string, fileName: string): void {
+export function openRenameBox(fileId: string, filePath: string, fileName: string): void {
   currentRenameFileId = fileId;
   currentRenameFilePath = filePath;
   currentRenameFileName = fileName;
@@ -560,7 +585,7 @@ function openRenameBox(fileId: string, filePath: string, fileName: string): void
  * Updates the rename button text and disabled state based on form values.
  * Also validates the filename and shows errors in real-time.
  */
-function updateRenameButton(): void {
+export function updateRenameButton(): void {
   const newPathInput = document.getElementById("new-path") as HTMLInputElement;
   const newNameInput = document.getElementById("new-name") as HTMLInputElement;
   const renameBtn = document.getElementById("rename-btn") as HTMLButtonElement;
@@ -592,7 +617,7 @@ function updateRenameButton(): void {
  * @param message - The status message to display
  * @param type - The message type determining the visual style
  */
-function showRenameStatus(message: string, type: "info" | "error" | "success"): void {
+export function showRenameStatus(message: string, type: "info" | "error" | "success"): void {
   const status = document.getElementById("rename-status") as HTMLDivElement;
   status.textContent = message;
   status.className = `status ${type}`;
@@ -675,7 +700,7 @@ async function handleRename(event: Event): Promise<void> {
 /**
  * Expands all directory details elements in the file tree and saves state.
  */
-function expandAll(): void {
+export function expandAll(): void {
   const allDetails = document.querySelectorAll("#file-tree details");
   allDetails.forEach((detail) => {
     (detail as HTMLDetailsElement).open = true;
@@ -688,7 +713,7 @@ function expandAll(): void {
 /**
  * Collapses all directory details elements in the file tree and clears state.
  */
-function collapseAll(): void {
+export function collapseAll(): void {
   const allDetails = document.querySelectorAll("#file-tree details");
   allDetails.forEach((detail) => {
     (detail as HTMLDetailsElement).open = false;
@@ -704,7 +729,7 @@ function collapseAll(): void {
  *
  * @param searchTerm - The search term to filter by (case-insensitive)
  */
-function filterTree(searchTerm: string): void {
+export function filterTree(searchTerm: string): void {
   const normalizedSearch = normalizeSearchTerm(searchTerm);
   const allFiles = document.querySelectorAll("#file-tree .tree-file");
   const allDetails = document.querySelectorAll("#file-tree details");
@@ -783,7 +808,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
     cleanupDeletedDirectories(DIRECTORY_TREE);
-    renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
+    renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer, AUTH_DATA);
 
     const expandAllBtn = document.getElementById("expand-all-btn") as HTMLButtonElement;
     const collapseAllBtn = document.getElementById("collapse-all-btn") as HTMLButtonElement;
