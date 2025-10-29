@@ -231,20 +231,27 @@ export class FileIndexer {
   }
 
   /**
+   * Execute a periodic directory scan, updating the search index.
+   * Called by the periodic scanning interval.
+   */
+  private async _executePeriodicScan(): Promise<void> {
+    log.info({ directory: this.directory }, "Rescanning directory");
+    try {
+      await this._scanDirectory();
+      this._updateSearch();
+      log.info({ fileCount: this.index.size }, "Rescan complete");
+    } catch (err) {
+      log.error({ err }, "Error during rescan");
+    }
+  }
+
+  /**
    * Set up periodic directory rescanning.
    */
   private _setupPeriodicScanning(): void {
     const intervalMs = this.scanIntervalMins * 60 * 1000;
     this.scanInterval = setInterval(() => {
-      log.info({ directory: this.directory }, "Rescanning directory");
-      this._scanDirectory()
-        .then(() => {
-          this._updateSearch();
-          log.info({ fileCount: this.index.size }, "Rescan complete");
-        })
-        .catch((err) => {
-          log.error({ err }, "Error during rescan");
-        });
+      this._executePeriodicScan();
     }, intervalMs);
   }
 

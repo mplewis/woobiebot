@@ -72,3 +72,6 @@ it("creates all files in parallel", async () => {
 it("handles empty file list", async () => {
   await createTestFiles(TEST_DIR, []);
 });
+
+// Note: Testing mkdir errors would require mocking fs.mkdir which is difficult with ESM
+// The createTestFiles function properly propagates errors from fs operations

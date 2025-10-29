@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import Cap from "@cap.js/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CaptchaManager } from "./captcha.js";
 import { solveCaptcha } from "./testUtils.js";
 
@@ -203,5 +204,54 @@ describe("signature security", () => {
 
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("Invalid signature");
+  });
+});
+
+describe("error handling", () => {
+  it("throws error when Cap.js returns null token", async () => {
+    vi.spyOn(Cap.prototype, "createChallenge").mockResolvedValue({
+      challenge: { c: 10, s: 10, d: 1 },
+      token: null as unknown as string,
+      expires: Date.now() + 60000,
+    });
+
+    await expect(manager.generateChallenge("user1", "file1")).rejects.toThrow(
+      "Failed to generate challenge token",
+    );
+
+    vi.restoreAllMocks();
+  });
+
+  it("returns false for invalid JSON in verifyChallenge", async () => {
+    const result = await manager.verifyChallenge(
+      "token123",
+      "not-valid-json",
+      "signature",
+      "1,2,3",
+      "user1",
+      "file1",
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when Cap.js redeemChallenge throws error", async () => {
+    const challenge = await manager.generateChallenge("user1", "file1");
+
+    vi.spyOn(Cap.prototype, "redeemChallenge").mockRejectedValue(new Error("Cap.js error"));
+
+    const result = await manager.verifySolution(
+      "user1",
+      "file1",
+      challenge.token,
+      challenge.challenge,
+      challenge.signature,
+      [1, 2, 3],
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("Verification failed");
+
+    vi.restoreAllMocks();
   });
 });

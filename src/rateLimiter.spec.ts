@@ -1,6 +1,7 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import fs, { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path, { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RateLimiter } from "./rateLimiter.js";
 
 let limiter: RateLimiter;
@@ -262,4 +263,60 @@ it("clears files on disk when clearing", async () => {
       () => false,
     ),
   ).toBe(false);
+});
+
+describe("error handling", () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await mkdtemp(join(tmpdir(), "rate-limiter-errors-"));
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("handles writeFile errors gracefully", async () => {
+    const limiter = new RateLimiter(10, 3600, testDir);
+
+    vi.spyOn(fs, "writeFile").mockRejectedValue(new Error("Write error"));
+
+    const result = await limiter.consume("user1");
+
+    expect(result.allowed).toBe(true);
+
+    vi.restoreAllMocks();
+  });
+
+  it("handles readFile errors gracefully", async () => {
+    const limiter = new RateLimiter(10, 3600, testDir);
+
+    const errorWithCode = new Error("Read error") as NodeJS.ErrnoException;
+    errorWithCode.code = "EACCES";
+    vi.spyOn(fs, "readFile").mockRejectedValue(errorWithCode);
+
+    const result = await limiter.consume("user1");
+
+    expect(result.allowed).toBe(true);
+
+    vi.restoreAllMocks();
+  });
+
+  it("handles clear errors when directory does not exist", async () => {
+    const limiter = new RateLimiter(10, 3600, `${testDir}/nonexistent`);
+
+    await expect(limiter.clear()).resolves.not.toThrow();
+  });
+
+  it("handles clear errors when readdir fails", async () => {
+    const limiter = new RateLimiter(10, 3600, testDir);
+
+    const errorWithCode = new Error("Readdir error") as NodeJS.ErrnoException;
+    errorWithCode.code = "EACCES";
+    vi.spyOn(fs, "readdir").mockRejectedValue(errorWithCode);
+
+    await expect(limiter.clear()).resolves.not.toThrow();
+
+    vi.restoreAllMocks();
+  });
 });

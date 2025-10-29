@@ -75,4 +75,38 @@ describe("filterTree", () => {
     const details = document.querySelector("#file-tree details") as HTMLDetailsElement;
     expect(details.classList.contains("hidden")).toBe(true);
   });
+
+  it("handles nested directories with subdirectory visible children", () => {
+    document.body.innerHTML = `
+      <div id="file-tree">
+        <details>
+          <summary>Parent</summary>
+          <div>
+            <details>
+              <summary>Subdirectory</summary>
+              <div>
+                <div class="tree-file">
+                  <a class="tree-file-link">deep-match.txt</a>
+                </div>
+              </div>
+            </details>
+          </div>
+        </details>
+      </div>
+    `;
+
+    filterTree("deep-match");
+
+    const parentDetails = document.querySelectorAll(
+      "#file-tree > details",
+    )[0] as HTMLDetailsElement;
+    const subdirDetails = document.querySelectorAll(
+      "#file-tree > details details",
+    )[0] as HTMLDetailsElement;
+
+    expect(parentDetails.classList.contains("hidden")).toBe(false);
+    expect(subdirDetails.classList.contains("hidden")).toBe(false);
+    expect(parentDetails.open).toBe(true);
+    expect(subdirDetails.open).toBe(true);
+  });
 });

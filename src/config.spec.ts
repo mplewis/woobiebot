@@ -95,6 +95,18 @@ it("uses custom SEARCH_THRESHOLD when provided", async () => {
   expect(config.SEARCH_THRESHOLD).toBe(0.8);
 });
 
+it("returns empty array for empty DISCORD_GUILD_IDS", async () => {
+  process.env["DISCORD_TOKEN"] = "test_token";
+  process.env["DISCORD_CLIENT_ID"] = "test_client_id";
+  process.env["SIGNING_SECRET"] = "this-is-a-very-long-secret-key-for-signing";
+  process.env["DISCORD_GUILD_IDS"] = "";
+
+  const { loadConfig } = await import("./config.js");
+  const config = loadConfig();
+
+  expect(config.DISCORD_GUILD_IDS).toEqual([]);
+});
+
 describe("parseTagPairs", () => {
   beforeEach(() => {
     // Set up minimal required env vars so config module can load

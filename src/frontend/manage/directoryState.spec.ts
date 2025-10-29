@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DirectoryTree } from "../../shared/types.js";
 import {
   cleanupDeletedDirectories,
@@ -168,6 +168,31 @@ describe("getAllTreePaths", () => {
     expect(paths.has("dir1")).toBe(true);
     expect(paths.has("dir1/subdir1")).toBe(true);
     expect(paths.has("dir1/subdir1/deepdir")).toBe(true);
+  });
+});
+
+describe("error handling", () => {
+  it("handles localStorage.getItem errors gracefully", () => {
+    const originalGetItem = localStorage.getItem;
+    localStorage.getItem = vi.fn().mockImplementation(() => {
+      throw new Error("Storage error");
+    });
+
+    const result = getExpandedDirectories();
+    expect(result.size).toBe(0);
+
+    localStorage.getItem = originalGetItem;
+  });
+
+  it("handles localStorage.setItem errors gracefully", () => {
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = vi.fn().mockImplementation(() => {
+      throw new Error("Storage error");
+    });
+
+    expect(() => saveExpandedDirectories(new Set(["dir1"]))).not.toThrow();
+
+    localStorage.setItem = originalSetItem;
   });
 });
 

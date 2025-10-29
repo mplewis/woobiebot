@@ -49,3 +49,7 @@ it("handles paths with special characters", () => {
 
   expect(id).toBe("dn2d93nb");
 });
+
+// Note: This test is difficult to write with ESM mocking limitations
+// The error case where hash[i] is undefined is practically impossible in production
+// as crypto.createHash().digest() always returns a complete buffer

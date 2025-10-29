@@ -510,3 +510,41 @@ it("returns generic error message for 500 errors without exposing details", asyn
   expect(response.body).not.toContain("secret123");
   expect(response.body).not.toContain("Database connection failed");
 });
+
+it("handles start error gracefully", async () => {
+  const badConfig: Config = {
+    ...mockConfig,
+    WEB_SERVER_PORT: -1,
+  };
+
+  const badDeps: WebServerDependencies = {
+    config: badConfig,
+    captchaManager,
+    rateLimiter,
+    indexer,
+    log,
+  };
+
+  const badServer = new WebServer(badDeps);
+
+  await expect(badServer.start()).rejects.toThrow();
+});
+
+it("handles stop error gracefully", async () => {
+  const deps: WebServerDependencies = {
+    config: mockConfig,
+    captchaManager,
+    rateLimiter,
+    indexer,
+    log,
+  };
+
+  const testServer = new WebServer(deps);
+  await testServer.start();
+
+  vi.spyOn(testServer.getApp(), "close").mockRejectedValue(new Error("Close error"));
+
+  await expect(testServer.stop()).rejects.toThrow("Close error");
+
+  vi.restoreAllMocks();
+});

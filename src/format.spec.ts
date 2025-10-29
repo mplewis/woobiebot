@@ -303,6 +303,17 @@ describe("formatAllResultsList", () => {
     `);
   });
 
+  it("handles empty results array", () => {
+    const result = formatAllResultsList("nonexistent", []);
+
+    expect(result.content).toBe('All 0 files matching "nonexistent":');
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]?.name).toBe("search-results-nonexistent.txt");
+
+    const fileContent = result.files[0]?.attachment.toString();
+    expect(fileContent).toBe("");
+  });
+
   it("sorts results into three score groups, alphabetized within each", () => {
     const mixedResults: SearchResult[] = [
       createSearchResult({ path: "patterns/amigurumi/amigurumi-cat.pdf", score: 0.1 }),

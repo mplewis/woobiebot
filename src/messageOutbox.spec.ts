@@ -684,6 +684,16 @@ describe("extractMessageContextStack", () => {
     `);
   });
 
+  it("extracts stack from err.stack when logObj.stack is missing", () => {
+    const result = extractMessageContextStack(
+      { err: { message: "Error", stack: "Error stack trace" } },
+      [],
+    );
+
+    expect(result.message).toBe("Error");
+    expect(result.stack).toBe("Error stack trace");
+  });
+
   it("extracts message from msg property", () => {
     const result = extractMessageContextStack({ msg: "Rate limit exceeded", userId: "456" }, []);
 
@@ -751,5 +761,28 @@ describe("getLevelsAtOrAbove", () => {
       expect.arrayContaining(["debug", "info", "warn", "error"]),
     );
     expect(getLevelsAtOrAbove("debug")).toHaveLength(4);
+  });
+});
+
+describe("error handling", () => {
+  it("does not start twice", async () => {
+    vi.useFakeTimers();
+
+    outbox.start();
+    outbox.start();
+
+    vi.advanceTimersByTime(5000);
+    await outbox.stop();
+
+    vi.useRealTimers();
+  });
+
+  it("handles flush errors gracefully", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("Network error"));
+
+    outbox.add("error", "Test error");
+    await outbox.flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

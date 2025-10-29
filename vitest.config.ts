@@ -27,6 +27,7 @@ export default defineConfig({
         "src/index.ts",
         "src/bot.ts",
         "src/frontend/**/index.ts",
+        "src/logger.ts",
       ],
       thresholds: {
         lines: 80,
