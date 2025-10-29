@@ -129,7 +129,7 @@ function renderDirectoryTree(
       folderName.textContent = name;
 
       const uploadBtn = document.createElement("button");
-      uploadBtn.className = "tree-upload-btn";
+      uploadBtn.className = "tree-upload-btn btn-xs";
       uploadBtn.textContent = "↑";
       uploadBtn.title = "Upload to this folder";
       uploadBtn.setAttribute("aria-label", `Upload to ${name} folder`);
@@ -167,7 +167,7 @@ function renderDirectoryTree(
         link.download = file.name;
 
         const deleteBtn = document.createElement("button");
-        deleteBtn.className = "tree-file-delete";
+        deleteBtn.className = "tree-file-delete btn-xs";
         deleteBtn.textContent = "✕";
         deleteBtn.title = "Delete file";
         deleteBtn.setAttribute("aria-label", `Delete ${file.name}`);
