@@ -76,7 +76,7 @@ label {
 input[type="text"],
 input[type="file"] {
   width: 100%;
-  padding: 12px;
+  padding: 10px 20px 10px 12px;
   border: 2px solid #ddd;
   border-radius: 6px;
   font-size: 1rem;
@@ -136,6 +136,24 @@ button:disabled {
   border-radius: 6px;
 }
 
+.input-xs {
+  padding: 4px 10px 4px 8px;
+  font-size: 0.9em;
+  border-radius: 4px;
+}
+
+.input-sm {
+  padding: 8px 16px 8px 12px;
+  font-size: 0.95rem;
+  border-radius: 6px;
+}
+
+.input-lg {
+  padding: 14px 30px 14px 16px;
+  font-size: 1.1rem;
+  border-radius: 6px;
+}
+
 .status {
   margin-top: 20px;
   padding: 12px;
@@ -167,10 +185,67 @@ button:disabled {
 
 .tree-controls {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
   margin: 20px 0;
   padding: 0;
+}
+
+.search-box {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 35px 10px 12px;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-box input:focus {
+  border-color: #667eea;
+}
+
+.search-box .input-xs {
+  padding: 4px 30px 4px 8px;
+}
+
+.search-box .input-sm {
+  padding: 8px 35px 8px 12px;
+}
+
+.search-box .input-lg {
+  padding: 14px 45px 14px 16px;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  color: #999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  box-shadow: none;
+}
+
+.search-box.has-text .search-clear-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.search-clear-btn:hover {
+  background: transparent;
+  color: #667eea;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: none;
 }
 
 #file-tree {
@@ -317,6 +392,11 @@ summary.tree-dir:hover .tree-upload-btn {
 .tree-empty {
   color: #999;
   font-style: italic;
+}
+
+.tree-file.hidden,
+details.hidden {
+  display: none;
 }
 
 .delete-modal {
