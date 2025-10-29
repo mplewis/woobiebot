@@ -2,7 +2,7 @@ import { fileMatchesSearch, normalizeSearchTerm } from "./validation.js";
 
 /**
  * Filters the file tree to show only files and directories that match the search term.
- * Files are matched by filename (case-insensitive substring match).
+ * Files are matched by full path (case-insensitive substring match).
  * Directories are shown if they contain any matching files or subdirectories.
  *
  * @param searchTerm - The search term to filter by (case-insensitive)
@@ -23,10 +23,10 @@ export function filterTree(searchTerm: string): void {
   }
 
   allFiles.forEach((file) => {
-    const fileLink = file.querySelector(".tree-file-link");
+    const fileLink = file.querySelector(".tree-file-link") as HTMLAnchorElement;
     if (fileLink) {
-      const fileName = fileLink.textContent || "";
-      if (fileMatchesSearch(fileName, normalizedSearch)) {
+      const filePath = fileLink.dataset.filePath || "";
+      if (fileMatchesSearch(filePath, normalizedSearch)) {
         file.classList.remove("hidden");
       } else {
         file.classList.add("hidden");

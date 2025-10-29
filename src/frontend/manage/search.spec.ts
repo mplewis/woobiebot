@@ -6,19 +6,19 @@ describe("filterTree", () => {
     document.body.innerHTML = `
       <div id="file-tree">
         <div class="tree-file">
-          <a class="tree-file-link">test.txt</a>
+          <a class="tree-file-link" data-file-path="test.txt">test.txt</a>
         </div>
         <div class="tree-file">
-          <a class="tree-file-link">document.pdf</a>
+          <a class="tree-file-link" data-file-path="document.pdf">document.pdf</a>
         </div>
         <div class="tree-file">
-          <a class="tree-file-link">another-test.txt</a>
+          <a class="tree-file-link" data-file-path="another-test.txt">another-test.txt</a>
         </div>
         <details>
           <summary>Folder</summary>
           <div>
             <div class="tree-file">
-              <a class="tree-file-link">nested.txt</a>
+              <a class="tree-file-link" data-file-path="Folder/nested.txt">nested.txt</a>
             </div>
           </div>
         </details>
@@ -86,7 +86,7 @@ describe("filterTree", () => {
               <summary>Subdirectory</summary>
               <div>
                 <div class="tree-file">
-                  <a class="tree-file-link">deep-match.txt</a>
+                  <a class="tree-file-link" data-file-path="Parent/Subdirectory/deep-match.txt">deep-match.txt</a>
                 </div>
               </div>
             </details>
@@ -108,5 +108,48 @@ describe("filterTree", () => {
     expect(subdirDetails.classList.contains("hidden")).toBe(false);
     expect(parentDetails.open).toBe(true);
     expect(subdirDetails.open).toBe(true);
+  });
+
+  it("searches by full path, not just filename", () => {
+    document.body.innerHTML = `
+      <div id="file-tree">
+        <div class="tree-file">
+          <a class="tree-file-link" data-file-path="data.txt">data.txt</a>
+        </div>
+        <details>
+          <summary>projects</summary>
+          <div>
+            <div class="tree-file">
+              <a class="tree-file-link" data-file-path="projects/readme.txt">readme.txt</a>
+            </div>
+          </div>
+        </details>
+        <details>
+          <summary>docs</summary>
+          <div>
+            <div class="tree-file">
+              <a class="tree-file-link" data-file-path="docs/readme.txt">readme.txt</a>
+            </div>
+          </div>
+        </details>
+      </div>
+    `;
+
+    filterTree("projects/");
+
+    const files = document.querySelectorAll("#file-tree .tree-file");
+    const dataFile = files[0];
+    const projectsReadme = files[1];
+    const docsReadme = files[2];
+
+    expect(dataFile.classList.contains("hidden")).toBe(true);
+    expect(projectsReadme.classList.contains("hidden")).toBe(false);
+    expect(docsReadme.classList.contains("hidden")).toBe(true);
+
+    const projectsFolder = document.querySelectorAll("#file-tree details")[0] as HTMLDetailsElement;
+    const docsFolder = document.querySelectorAll("#file-tree details")[1] as HTMLDetailsElement;
+
+    expect(projectsFolder.classList.contains("hidden")).toBe(false);
+    expect(docsFolder.classList.contains("hidden")).toBe(true);
   });
 });

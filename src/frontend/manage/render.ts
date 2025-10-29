@@ -111,6 +111,7 @@ export function renderDirectoryTree(
         link.textContent = file.name;
         link.className = "tree-file-link";
         link.download = file.name;
+        link.dataset.filePath = file.path;
 
         const renameBtn = document.createElement("button");
         renameBtn.className = "tree-file-rename btn-xs";

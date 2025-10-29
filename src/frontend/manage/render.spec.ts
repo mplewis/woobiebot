@@ -82,6 +82,7 @@ describe("renderDirectoryTree", () => {
           href="/manage/download/file1?userId=user123&amp;signature=abc123&amp;expiresAt=9999999999"
           class="tree-file-link"
           download="test.txt"
+          data-file-path="test.txt"
           >test.txt</a
         ><button
           class="tree-file-rename btn-xs"
@@ -152,6 +153,7 @@ describe("renderDirectoryTree", () => {
               href="/manage/download/file2?userId=user123&amp;signature=abc123&amp;expiresAt=9999999999"
               class="tree-file-link"
               download="nested.txt"
+              data-file-path="folder/nested.txt"
               >nested.txt</a
             ><button
               class="tree-file-rename btn-xs"
@@ -314,6 +316,7 @@ describe("renderDirectoryTree", () => {
               href="/manage/download/doc2?userId=user123&amp;signature=abc123&amp;expiresAt=9999999999"
               class="tree-file-link"
               download="guide.pdf"
+              data-file-path="docs/guide.pdf"
               >guide.pdf</a
             ><button
               class="tree-file-rename btn-xs"
@@ -334,6 +337,7 @@ describe("renderDirectoryTree", () => {
               href="/manage/download/doc1?userId=user123&amp;signature=abc123&amp;expiresAt=9999999999"
               class="tree-file-link"
               download="readme.md"
+              data-file-path="docs/readme.md"
               >readme.md</a
             ><button
               class="tree-file-rename btn-xs"
@@ -356,6 +360,7 @@ describe("renderDirectoryTree", () => {
           href="/manage/download/root1?userId=user123&amp;signature=abc123&amp;expiresAt=9999999999"
           class="tree-file-link"
           download="root-file.txt"
+          data-file-path="root-file.txt"
           >root-file.txt</a
         ><button
           class="tree-file-rename btn-xs"

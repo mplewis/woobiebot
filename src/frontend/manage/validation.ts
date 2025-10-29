@@ -51,13 +51,13 @@ export function normalizeSearchTerm(searchTerm: string): string {
 }
 
 /**
- * Checks if a filename matches a normalized search term (case-insensitive substring match).
+ * Checks if a file path matches a normalized search term (case-insensitive substring match).
  *
- * @param fileName - The filename to check
+ * @param filePath - The file path to check
  * @param normalizedSearchTerm - The normalized search term to match against
  */
-export function fileMatchesSearch(fileName: string, normalizedSearchTerm: string): boolean {
-  return fileName.toLowerCase().includes(normalizedSearchTerm);
+export function fileMatchesSearch(filePath: string, normalizedSearchTerm: string): boolean {
+  return filePath.toLowerCase().includes(normalizedSearchTerm);
 }
 
 /**
