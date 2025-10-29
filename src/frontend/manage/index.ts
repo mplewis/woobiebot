@@ -98,7 +98,7 @@ function renderDirectoryTree(
     if (entry.type === "directory") {
       const { name, value } = entry;
       const details = document.createElement("details");
-      details.open = level === 0;
+      details.open = false;
       details.style.paddingLeft = `${level * 20}px`;
 
       const summary = document.createElement("summary");
