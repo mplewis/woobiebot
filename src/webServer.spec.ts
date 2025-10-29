@@ -243,12 +243,109 @@ it("sanitizes filenames with special characters in Content-Disposition header", 
   const disposition = response.headers["content-disposition"];
   expect(disposition).toBeDefined();
   expect(disposition).toContain("attachment");
-  expect(disposition).toContain('filename="test\\"filewithspecial\\\\chars.txt"');
+  expect(disposition).toContain('filename="testfilewithspecialchars.txt"');
   expect(disposition).toContain("filename*=UTF-8''test%22file%0Awith%0Dspecial%5Cchars.txt");
   expect(response.body).toBe("Special content");
 
   indexer = newIndexer;
 });
+
+it.each([
+  {
+    name: "apostrophes",
+    filename: "gandalf's staff.txt",
+    content: "Magical content",
+    expectedSafe: "gandalfsstaff.txt",
+    expectedEncoded: "gandalf's%20staff.txt",
+  },
+  {
+    name: "smart quotes",
+    filename: "user's \u201Cfancy\u201D file.txt",
+    content: "Smart quote content",
+    expectedSafe: "usersfancyfile.txt",
+    expectedEncoded: "user's%20%E2%80%9Cfancy%E2%80%9D%20file.txt",
+  },
+  {
+    name: "parentheses and brackets",
+    filename: "test (copy) [final].txt",
+    content: "Bracket content",
+    expectedSafe: "testcopyfinal.txt",
+    expectedEncoded: "test%20(copy)%20%5Bfinal%5D.txt",
+  },
+  {
+    name: "ampersands and symbols",
+    filename: "rock & roll @ midnight!.txt",
+    content: "Symbol content",
+    expectedSafe: "rockrollmidnight.txt",
+    expectedEncoded: "rock%20%26%20roll%20%40%20midnight!.txt",
+  },
+  {
+    name: "unicode characters",
+    filename: "caf\u00E9 \u00E9clairs \u2665.txt",
+    content: "Unicode content",
+    expectedSafe: "cafclairs.txt",
+    expectedEncoded: "caf%C3%A9%20%C3%A9clairs%20%E2%99%A5.txt",
+  },
+  {
+    name: "commas and semicolons",
+    filename: "data,file;version2.txt",
+    content: "Punctuation content",
+    expectedSafe: "datafileversion2.txt",
+    expectedEncoded: "data%2Cfile%3Bversion2.txt",
+  },
+])(
+  "sanitizes filenames with $name in Content-Disposition header",
+  async ({ filename, content, expectedSafe, expectedEncoded }) => {
+    await writeFile(join(tempDir, filename), content);
+
+    await indexer.stop();
+    const newIndexer = new FileIndexer({ directory: tempDir, extensions: [".txt"] });
+    await newIndexer.start();
+
+    const files = newIndexer.getAll();
+    const testFile = files.find((f) => f.name === filename);
+    if (!testFile) {
+      throw new Error(`File with ${filename} not found in indexer`);
+    }
+
+    await server.stop();
+    server = new WebServer({
+      config: mockConfig,
+      captchaManager,
+      rateLimiter,
+      indexer: newIndexer,
+      log,
+    });
+
+    const userId = "user123";
+    const challengeData = await captchaManager.generateChallenge(userId, testFile.id);
+    const solution = solveCaptcha(challengeData.token, challengeData.challenge);
+
+    const response = await server.getApp().inject({
+      method: "POST",
+      url: "/verify",
+      payload: {
+        userId,
+        fileId: testFile.id,
+        token: challengeData.token,
+        challenge: JSON.stringify(challengeData.challenge),
+        signature: challengeData.signature,
+        solution: solution.join(","),
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const disposition = response.headers["content-disposition"];
+    expect(disposition).toBeDefined();
+    expect(disposition).toContain("attachment");
+    expect(disposition).toContain(`filename="${expectedSafe}"`);
+    expect(disposition).toContain(`filename*=UTF-8''${expectedEncoded}`);
+    expect(response.body).toBe(content);
+
+    indexer = newIndexer;
+  },
+);
 
 it("returns 400 for missing fields", async () => {
   const response = await server.getApp().inject({

@@ -99,7 +99,7 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageRoutesDep
     log.info({ userId, fileId, filename: file.name }, "Serving manage download");
 
     const stat = statSync(file.absolutePath);
-    const safeFilename = file.name.replace(/["\\]/g, "\\$&").replace(/[\r\n]/g, "");
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9.]/g, "");
     const encodedFilename = encodeURIComponent(file.name);
 
     return reply

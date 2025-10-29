@@ -114,7 +114,7 @@ export function registerPublicRoutes(app: FastifyInstance, deps: PublicRoutesDep
     log.info({ userId, fileId, filename: file.name }, "Serving file download");
 
     const stat = statSync(file.absolutePath);
-    const safeFilename = file.name.replace(/["\\]/g, "\\$&").replace(/[\r\n]/g, "");
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9.]/g, "");
     const encodedFilename = encodeURIComponent(file.name);
 
     return reply
