@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+IMAGE_NAME="woobiebot"
+CONTAINER_NAME="woobiebot"
+
+docker build -t "$IMAGE_NAME" .
+
+docker stop "$CONTAINER_NAME" 2>/dev/null || true
+docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+docker run -it \
+  --name "$CONTAINER_NAME" \
+  --env-file .env \
+  -p 3000:3000 \
+  -v "$(pwd)/tmp/files:/app/tmp/files" \
+  -v "$(pwd)/tmp/rate-limit.json:/app/tmp/rate-limit.json" \
+  "$IMAGE_NAME"
