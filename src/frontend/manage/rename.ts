@@ -1,5 +1,5 @@
 import type { AuthData, DirectoryTree, RenameResponse } from "../../shared/types.js";
-import { validateFilename } from "../../validation.js";
+import { validateFilename } from "../../shared/validation.js";
 import {
   determineRenameOperation,
   extractDirectoryPath,

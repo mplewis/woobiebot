@@ -3,10 +3,10 @@ import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
 import { ZodError } from "zod";
+import { type VerifyRequest, VerifyRequestSchema } from "../../shared/types.js";
 import type { CaptchaManager } from "../captcha.js";
 import type { FileIndexer } from "../indexer.js";
 import type { RateLimiter } from "../rateLimiter.js";
-import { type VerifyRequest, VerifyRequestSchema } from "../shared/types.js";
 import type { UrlSigner } from "../urlSigner.js";
 
 /**

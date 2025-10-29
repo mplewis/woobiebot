@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "Discord bot for file serving with search and rate limiting",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/backend/index.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -20,7 +20,7 @@
     "lint:fix": "biome check --write .",
     "lint": "biome check .",
     "prepare": "lefthook install || true",
-    "start": "node dist/index.js",
+    "start": "node dist/backend/index.js",
     "test:run": "pnpm build && vitest --run --coverage",
     "test": "pnpm build && vitest"
   },

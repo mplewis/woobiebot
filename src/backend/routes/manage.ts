@@ -3,11 +3,11 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
+import { validateFilename, validateNoExistingFile } from "../../shared/validation.js";
 import { createManageAuthHook } from "../authMiddleware.js";
 import { bytesToMB } from "../format.js";
 import type { FileIndexer } from "../indexer.js";
 import type { UrlSigner } from "../urlSigner.js";
-import { validateFilename, validateNoExistingFile } from "../validation.js";
 
 /**
  * Generates a unique filename by appending a numeric suffix if the file already exists.

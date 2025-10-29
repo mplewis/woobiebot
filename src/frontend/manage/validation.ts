@@ -1,5 +1,5 @@
 import type { DirectoryTree, FileMetadata } from "../../shared/types.js";
-import { validateFilename, validateNoExistingFile } from "../../validation.js";
+import { validateFilename, validateNoExistingFile } from "../../shared/validation.js";
 
 /**
  * Extracts the directory path from a full file path by removing the filename.

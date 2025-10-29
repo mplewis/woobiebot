@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    setupFiles: ["./src/test-setup.ts"],
+    setupFiles: ["./src/backend/test-setup.ts"],
     include: ["src/**/*.spec.ts"],
     environmentMatchGlobs: [["src/frontend/**/*.spec.ts", "jsdom"]],
     env: {
@@ -24,10 +24,10 @@ export default defineConfig({
         "**/*.d.ts",
         "**/*.spec.ts",
         "templates/**",
-        "src/index.ts",
-        "src/bot.ts",
+        "src/backend/index.ts",
+        "src/backend/bot.ts",
         "src/frontend/**/index.ts",
-        "src/logger.ts",
+        "src/backend/logger.ts",
       ],
       thresholds: {
         lines: 80,
