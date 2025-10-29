@@ -11,6 +11,15 @@ const isDevelopment = process.env["NODE_ENV"] !== "production";
  */
 const loggerOptions: pino.LoggerOptions = {
   level: process.env["LOG_LEVEL"] ?? "info",
+  hooks: {
+    logMethod(inputArgs, method, level) {
+      if (messageOutbox && inputArgs.length > 0) {
+        const levelLabel = this.levels.labels[level] as "debug" | "info" | "warn" | "error";
+        messageOutbox.addFromPinoLog(levelLabel, inputArgs[0], inputArgs.slice(1));
+      }
+      return method.apply(this, inputArgs);
+    },
+  },
 };
 
 if (isDevelopment) {
@@ -38,37 +47,4 @@ let messageOutbox: MessageOutbox | null = null;
  */
 export function enableMessageOutbox(outbox: MessageOutbox): void {
   messageOutbox = outbox;
-
-  const originalDebug = log.debug.bind(log) as (...args: unknown[]) => void;
-  const originalInfo = log.info.bind(log) as (...args: unknown[]) => void;
-  const originalWarn = log.warn.bind(log) as (...args: unknown[]) => void;
-  const originalError = log.error.bind(log) as (...args: unknown[]) => void;
-
-  (log as { debug: (...args: unknown[]) => void }).debug = (...args: unknown[]) => {
-    originalDebug(...args);
-    if (messageOutbox) {
-      messageOutbox.addFromPinoLog("debug", args[0], args.slice(1));
-    }
-  };
-
-  (log as { info: (...args: unknown[]) => void }).info = (...args: unknown[]) => {
-    originalInfo(...args);
-    if (messageOutbox) {
-      messageOutbox.addFromPinoLog("info", args[0], args.slice(1));
-    }
-  };
-
-  (log as { warn: (...args: unknown[]) => void }).warn = (...args: unknown[]) => {
-    originalWarn(...args);
-    if (messageOutbox) {
-      messageOutbox.addFromPinoLog("warn", args[0], args.slice(1));
-    }
-  };
-
-  (log as { error: (...args: unknown[]) => void }).error = (...args: unknown[]) => {
-    originalError(...args);
-    if (messageOutbox) {
-      messageOutbox.addFromPinoLog("error", args[0], args.slice(1));
-    }
-  };
 }
