@@ -343,6 +343,26 @@ async function handleDeleteFile(): Promise<void> {
   }
 }
 
+/**
+ * Expands all folder details elements in the file tree.
+ */
+function expandAll(): void {
+  const allDetails = document.querySelectorAll("#file-tree details");
+  allDetails.forEach((detail) => {
+    (detail as HTMLDetailsElement).open = true;
+  });
+}
+
+/**
+ * Collapses all folder details elements in the file tree.
+ */
+function collapseAll(): void {
+  const allDetails = document.querySelectorAll("#file-tree details");
+  allDetails.forEach((detail) => {
+    (detail as HTMLDetailsElement).open = false;
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     const manageData = await fetchManageData();
@@ -370,6 +390,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const fileTreeContainer = document.getElementById("file-tree") as HTMLDivElement;
     renderDirectoryTree(DIRECTORY_TREE, fileTreeContainer);
+
+    const expandAllBtn = document.getElementById("expand-all-btn") as HTMLButtonElement;
+    const collapseAllBtn = document.getElementById("collapse-all-btn") as HTMLButtonElement;
+    expandAllBtn.addEventListener("click", expandAll);
+    collapseAllBtn.addEventListener("click", collapseAll);
 
     const deleteConfirmInput = document.getElementById("delete-confirm-input") as HTMLInputElement;
     const deleteConfirmBtn = document.getElementById("delete-confirm-btn") as HTMLButtonElement;
