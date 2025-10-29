@@ -69,7 +69,7 @@ describe("formatSearchResults", () => {
     });
 
     expect(result.content).toMatchInlineSnapshot(`
-      "Found 2 file(s) matching "test":
+      "Found 2 files matching "test":
 
       - [\`test1.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
       - [\`test2.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
@@ -101,7 +101,7 @@ describe("formatSearchResults", () => {
     });
 
     expect(result.content).toMatchInlineSnapshot(`
-      "Found 2 file(s) matching "test":
+      "Found 2 files matching "test":
 
       - [\`test1.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
       - [\`test2.txt\`](http://localhost:3000/download?userId=user123&fileId=file1)
@@ -132,7 +132,7 @@ describe("formatSearchResults", () => {
       generateDownloadUrl: mockGenerateDownloadUrl,
     });
 
-    expect(result.content).toContain('Found 50 file(s) matching "test"');
+    expect(result.content).toContain('Found 50 files matching "test"');
     expect(result.content).toContain("...and");
     expect(result.content).toContain("more");
     expect(result.components).toBeDefined();
@@ -168,7 +168,7 @@ describe("formatSearchResults", () => {
     });
 
     expect(result.content).toMatchInlineSnapshot(`
-      "Found 10 file(s) matching "amigurumi":
+      "Found 10 files matching "amigurumi":
 
       - [\`patterns/amigurumi/amigurumi-octopus.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
       - [\`patterns/amigurumi/amigurumi-bunny.pdf\`](http://localhost:3000/download?userId=user123&fileId=file1)
@@ -274,7 +274,7 @@ describe("formatAllResultsList", () => {
   it("formats all results as file attachment", () => {
     const result = formatAllResultsList("test", mockResults);
 
-    expect(result.content).toContain('All 20 file(s) matching "test"');
+    expect(result.content).toContain('All 20 files matching "test"');
     expect(result.files).toHaveLength(1);
     expect(result.files[0]?.name).toBe("search-results-test.txt");
 
@@ -289,7 +289,7 @@ describe("formatAllResultsList", () => {
     const fewResults = mockResults.slice(0, 3);
     const result = formatAllResultsList("query", fewResults);
 
-    expect(result.content).toBe('All 3 file(s) matching "query":');
+    expect(result.content).toBe('All 3 files matching "query":');
     expect(result.files).toHaveLength(1);
 
     const fileContent = result.files[0]?.attachment.toString();
@@ -317,7 +317,7 @@ describe("formatAllResultsList", () => {
 
     const result = formatAllResultsList("amigurumi", mixedResults);
 
-    expect(result.content).toBe('All 9 file(s) matching "amigurumi":');
+    expect(result.content).toBe('All 9 files matching "amigurumi":');
     expect(result.files).toHaveLength(1);
 
     const fileContent = result.files[0]?.attachment.toString();

@@ -11,6 +11,7 @@ import type { Config } from "./config.js";
 import { deployCommands } from "./deployCommands.js";
 import { formatAllResultsList, formatSearchResults } from "./format.js";
 import type { FileIndexer } from "./indexer.js";
+import { pluralize } from "./pluralize.js";
 import type { RateLimiter } from "./rateLimiter.js";
 import type { WebServer } from "./webServer.js";
 
@@ -114,9 +115,9 @@ export class Bot {
     this.log.info({ userId, query }, "Search command");
 
     if (query.length < this.config.SEARCH_MIN_CHARS) {
-      const s = this.config.SEARCH_MIN_CHARS === 1 ? "" : "s";
+      const word = pluralize(this.config.SEARCH_MIN_CHARS, "character");
       await interaction.editReply({
-        content: `Search query must be at least ${this.config.SEARCH_MIN_CHARS} character${s}.`,
+        content: `Search query must be at least ${this.config.SEARCH_MIN_CHARS} ${word}.`,
       });
       return;
     }

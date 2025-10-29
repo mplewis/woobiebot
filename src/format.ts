@@ -6,6 +6,7 @@ import {
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import type { SearchResult } from "./indexer.js";
+import { pluralize } from "./pluralize.js";
 import type { RateLimitResult } from "./rateLimiter.js";
 
 /**
@@ -124,10 +125,11 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
   const expiryTimestamp = Math.floor((Date.now() + urlExpiryMs) / 1000);
   const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
 
-  const found = `Found ${results.length} file(s) matching "${query}"`;
+  const fileWord = pluralize(results.length, "file");
+  const found = `Found ${results.length} ${fileWord} matching "${query}"`;
   const expiry = `Links expire <t:${expiryTimestamp}:R>.\n`;
-  const s = rateLimitResult.remainingTokens === 1 ? "" : "s";
-  const quota = `You have ${rateLimitResult.remainingTokens} download${s} remaining, refreshing <t:${resetTimestamp}:R>.`;
+  const downloadWord = pluralize(rateLimitResult.remainingTokens, "download");
+  const quota = `You have ${rateLimitResult.remainingTokens} ${downloadWord} remaining, refreshing <t:${resetTimestamp}:R>.`;
 
   const header = `${found}:\n\n`;
   const footer = `\n\n${expiry}${quota}`;
@@ -191,7 +193,7 @@ export function formatAllResultsList(
       `search-results-${query}.txt`,
     );
     return {
-      content: `All 0 file(s) matching "${query}":`,
+      content: `All 0 files matching "${query}":`,
       files: [attachment],
     };
   }
@@ -216,8 +218,9 @@ export function formatAllResultsList(
     `search-results-${query}.txt`,
   );
 
+  const fileWord = pluralize(results.length, "file");
   return {
-    content: `All ${results.length} file(s) matching "${query}":`,
+    content: `All ${results.length} ${fileWord} matching "${query}":`,
     files: [attachment],
   };
 }
