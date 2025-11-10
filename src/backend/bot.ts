@@ -158,14 +158,6 @@ export class Bot {
     }
 
     const rateLimitResult = await this.rateLimiter.getState(userId);
-    if (!rateLimitResult.allowed) {
-      const resetTimestamp = Math.floor(rateLimitResult.resetAt.getTime() / 1000);
-      await interaction.editReply({
-        content: `Sorry, you're out of downloads for now. Your quota will reset <t:${resetTimestamp}:R>.`,
-      });
-      return;
-    }
-
     const formatted = formatSearchResults({
       query,
       results,
@@ -174,7 +166,6 @@ export class Bot {
       urlExpiryMs: this.config.URL_EXPIRY_SEC * 1000,
       generateDownloadUrl: (uid, fid) => this.webServer.generateDownloadUrl(uid, fid),
     });
-
     await interaction.editReply(formatted);
   }
 

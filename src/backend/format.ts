@@ -129,7 +129,10 @@ export function formatSearchResults(options: FormatSearchResultsOptions): Format
   const found = `Found ${results.length} ${fileWord} matching "${query}"`;
   const expiry = `Links expire <t:${expiryTimestamp}:R>.\n`;
   const downloadWord = pluralize(rateLimitResult.remainingTokens, "download");
-  const quota = `You have ${rateLimitResult.remainingTokens} ${downloadWord} remaining, refreshing <t:${resetTimestamp}:R>.`;
+  const quota =
+    rateLimitResult.remainingTokens > 0
+      ? `You have ${rateLimitResult.remainingTokens} ${downloadWord} remaining, refreshing <t:${resetTimestamp}:R>.`
+      : `You have no downloads remaining, but you can still search. Downloads reset at <t:${resetTimestamp}:R>.`;
 
   const header = `${found}:\n\n`;
   const footer = `\n\n${expiry}${quota}`;
